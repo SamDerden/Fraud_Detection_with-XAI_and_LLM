@@ -6,6 +6,8 @@ a calibrated fraud probability or a deployable banking decision engine.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
+from fastapi.responses import FileResponse
 from functools import lru_cache
 import os
 from typing import Literal
@@ -28,6 +30,11 @@ FEATURE_NAMES = (
 MODEL_VERSION = "synthetic-demo-v1"
 app = FastAPI(title="Antifraud ML + SHAP", version="0.2.0")
 install_observability(app)
+
+
+@app.get("/", include_in_schema=False)
+def dashboard():
+    return FileResponse(Path(__file__).resolve().parent / "dashboard.html", media_type="text/html")
 
 
 class ScoreRequest(BaseModel):
