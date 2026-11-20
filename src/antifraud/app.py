@@ -26,7 +26,7 @@ FEATURE_NAMES = (
     "is_new_device", "is_night_tx", "avg_amount_ratio", "channel_mobile",
 )
 MODEL_VERSION = "synthetic-demo-v1"
-app = FastAPI(title="Antifraud synthetic demo", version="0.1.0")
+app = FastAPI(title="Antifraud ML + SHAP", version="0.2.0")
 install_observability(app)
 
 
@@ -131,6 +131,9 @@ def health() -> dict:
         _, meta = load_artifact(artifact)
         version, demo = meta["model_version"], False
     else:
+        if os.getenv("ANTIFRAUD_REQUIRE_ARTIFACT") == "1":
+            from fastapi import HTTPException
+            raise HTTPException(status_code=503, detail="CatBoost v3 artifact not loaded; synthetic fallback forbidden")
         get_model()
         version, demo = MODEL_VERSION, True
     return {"status": "ok", "model_version": version, "demo_only": demo,
@@ -146,6 +149,9 @@ def model_info() -> dict:
                 "n_features": len(meta["features"]), "feature_names": meta["features"],
                 "training_data": "local_csv", "demo_only": False,
                 "review_threshold": meta["review_threshold"], "block_threshold": None}
+    if os.getenv("ANTIFRAUD_REQUIRE_ARTIFACT") == "1":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="CatBoost v3 artifact not loaded; synthetic fallback forbidden")
     return {"model_version": MODEL_VERSION, "model_type": "RandomForestClassifier",
             "n_features": len(FEATURE_NAMES), "feature_names": list(FEATURE_NAMES),
             "training_data": "synthetic", "demo_only": True}
@@ -193,6 +199,9 @@ def score_transaction(req: ScoreRequest) -> ScoreResponse:
             demo_only=False, explanation_method=explanation_method,
             top_factors=shap["top_factors"],
         )
+    if os.getenv("ANTIFRAUD_REQUIRE_ARTIFACT") == "1":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="CatBoost v3 artifact not loaded; synthetic fallback forbidden")
     score = float(get_model().predict_proba(build_features(req))[0, 1])
     decision = decision_for(score)
     return ScoreResponse(
