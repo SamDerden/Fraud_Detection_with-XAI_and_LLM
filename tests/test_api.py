@@ -83,3 +83,20 @@ def test_no_pii_in_metrics():
 def test_invalid_feature_rejected():
     response = client.post("/v1/score", json={**VALID, "tx_count_24h": -1})
     assert response.status_code == 422
+
+
+def test_artifact_requires_engineered_features(monkeypatch):
+    monkeypatch.setenv("ANTIFRAUD_MODEL_DIR", "/not/loaded")
+    response = client.post("/v1/score", json=VALID)
+    assert response.status_code == 422
+
+
+def test_artifact_review_only(monkeypatch):
+    monkeypatch.setenv("ANTIFRAUD_MODEL_DIR", "/fake/model")
+    monkeypatch.setattr("antifraud.app.predict_from_artifact",
+                        lambda directory, features: (0.95, {"review_threshold": 0.5, "model_version": "test"}))
+    payload = {**VALID, "avg_amount_30d": 1000, "is_new_device": 1, "is_night_tx": 1}
+    response = client.post("/v1/score", json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["decision"] == "review"
+    assert response.json()["demo_only"] is False
