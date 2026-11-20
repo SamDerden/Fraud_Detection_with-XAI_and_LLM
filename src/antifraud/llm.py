@@ -52,7 +52,7 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
             )},
             {"role": "user", "content": json.dumps([
                 {"feature": f["feature"], "direction": f["direction"],
-                 "shap_log_odds": f["shap_log_odds"]} for f in factors
+                 "contribution": f.get("score_delta", f.get("shap_log_odds"))} for f in factors
             ], ensure_ascii=False)},
         ],
     }

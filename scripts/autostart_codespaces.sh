@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-if [[ ! -f catboost-v3-artifact.zip && ! -f artifacts/catboost-v3/model.cbm ]]; then
-  echo "Antifraud: catboost-v3-artifact.zip is missing from GitHub; refusing synthetic demo."
+if [[ ! -f extratrees-v4-artifact.zip && ! -f catboost-v3-artifact.zip && ! -f artifacts/catboost-v3/model.cbm ]]; then
+  echo "Antifraud: No trusted model archive is available from GitHub; refusing synthetic demo."
   echo "Add the archive to the repository once; future Codespaces will launch automatically."
   exit 0
 fi
