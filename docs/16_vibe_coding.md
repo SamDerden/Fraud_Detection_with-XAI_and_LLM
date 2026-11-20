@@ -32,3 +32,8 @@
 
 ## LLM provider security update
 The explanation layer now supports `grok`, `groq`, and `openrouter` via **fixed allowlisted endpoints** and environment-only API keys. Invalid providers fail closed to deterministic SHAP; user IDs and transaction payloads are never sent to LLM. The legacy `explain_with_optional_grok` function name remains for compatibility. No live provider request has been verified; previously exposed ngrok token revocation still requires the owner's action.
+
+
+## Актуальное решение для защиты — ExtraTrees v4
+
+**Выбрана ExtraTreesClassifier** с `n_estimators=200`, `max_depth=4`, `min_samples_leaf=6`, `random_state=42`, 13 исходными и 7 производными признаками. Validation PR-AUC **0,342852**, ROC-AUC **0,803479** — лучшие показатели по PR-AUC среди [32 конфигураций](WEBINAR05_32_EXPERIMENTS.md). В углублённом ограниченном поиске (50–100 деревьев, 30+30 trials) достигнуто 0,312462; это не повторение победителя с 200 деревьями. [Артефакт v4](../extratrees-v4-artifact.zip) опубликован. **API, XAI, HTTP E2E и независимая новая test-оценка v4 не подтверждены.** Упоминания CatBoost/Blend и старых метрик в документе — исторический контекст, не итоговый выбор.

@@ -27,3 +27,8 @@
 - Проверка `/predict`, `/healthcheck`, `/model-info` и неконсистентной истории добавлена в `tests/test_webinar_contract.py`. Её успешный прогон должен быть подтверждён GitHub Actions.
 
 Доступные инструменты в локальной среде не содержат MLflow и Docker CLI. Поэтому **не выдаём локальное обучение за MLflow-трекинг или успешный Docker build**. CI в GitHub выполняет pytest и Docker build отдельно.
+
+
+## Актуальное решение для защиты — ExtraTrees v4
+
+**Выбрана ExtraTreesClassifier** с `n_estimators=200`, `max_depth=4`, `min_samples_leaf=6`, `random_state=42`, 13 исходными и 7 производными признаками. Validation PR-AUC **0,342852**, ROC-AUC **0,803479** — лучшие показатели по PR-AUC среди [32 конфигураций](WEBINAR05_32_EXPERIMENTS.md). В углублённом ограниченном поиске (50–100 деревьев, 30+30 trials) достигнуто 0,312462; это не повторение победителя с 200 деревьями. [Артефакт v4](../extratrees-v4-artifact.zip) опубликован. **API, XAI, HTTP E2E и независимая новая test-оценка v4 не подтверждены.** Упоминания CatBoost/Blend и старых метрик в документе — исторический контекст, не итоговый выбор.
