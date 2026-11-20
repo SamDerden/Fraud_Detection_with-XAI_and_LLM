@@ -36,3 +36,8 @@ python experiments/webinar06_validate_legacy.py --data '/path/to/antifraud_trans
 
 ## Next execution environment
 Run the existing `experiments/webinar06_validate_legacy.py --ge` in Codespaces with Great Expectations installed, **only on the original 5,000-row flawed CSV**. Never use v3 for webinar 6. Current sandbox could not install Great Expectations; no GE success is claimed.
+
+
+## Актуальная модель для защиты: ExtraTrees v4
+
+Выбрана **ExtraTrees v4 (200 деревьев, max_depth=4, min_samples_leaf=6)** с 13 исходными и 7 производными признаками: validation PR-AUC **0,342852**, ROC-AUC **0,803479**. Основание — лучший результат из [32 сравнительных конфигураций](WEBINAR05_32_EXPERIMENTS.md), с оговоркой о неодинаковом бюджете Optuna и отсутствии новой независимой test-оценки. [ZIP артефакта](../extratrees-v4-artifact.zip) уже в репозитории. **В коде FastAPI и тестах пока используется legacy CatBoost/Blend или учебный fallback; E2E v4 ещё не подтверждён.** Старые метрики в документе сохранены как исторические, не как показатели выбранной модели.

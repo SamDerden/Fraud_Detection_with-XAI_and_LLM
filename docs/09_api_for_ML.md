@@ -12,7 +12,7 @@
 | `/health`, `/v1/model-info` | GET | основные служебные маршруты |
 | `/docs` | GET | Swagger/OpenAPI |
 
-Полный JSON-контракт, обязательные признаки, типы и примеры ошибок находятся в [В03](03_contract.md). Pydantic возвращает 422 для отрицательной суммы, неверного времени и других невалидных полей. При `ANTIFRAUD_MODEL_DIR` используется сохранённый CatBoost-прототип; без него — явно обозначенный синтетический fallback. **Это не финальная модель v3 и не production-банк.**
+Полный JSON-контракт, обязательные признаки, типы и примеры ошибок находятся в [В03](03_contract.md). Pydantic возвращает 422 для отрицательной суммы, неверного времени и других невалидных полей. При `ANTIFRAUD_MODEL_DIR` используется сохранённый CatBoost-прототип; без него — явно обозначенный синтетический fallback. **Это legacy-режим, не выбранная ExtraTrees v4 и не production-банк.**
 
 ## Проверка
 ```bash
@@ -29,3 +29,8 @@ PYTHONPATH=src pytest -q tests/test_api.py tests/test_webinar_contract.py
 
 ## Codespaces demo (update)
 Added `.devcontainer/devcontainer.json` with Python 3.11 and forwarded port 8000. Run `PYTHONPATH=src uvicorn antifraud.app:app --host 0.0.0.0 --port 8000` then open `/docs`. Without v3 artifact, endpoint serves synthetic toy RF; SHAP E2E requires trusted `model.cbm` and `metadata.json` in Codespace with `ANTIFRAUD_MODEL_DIR`. This setup does not require local Docker.
+
+
+## Актуальная модель для защиты: ExtraTrees v4
+
+Выбрана **ExtraTrees v4 (200 деревьев, max_depth=4, min_samples_leaf=6)** с 13 исходными и 7 производными признаками: validation PR-AUC **0,342852**, ROC-AUC **0,803479**. Основание — лучший результат из [32 сравнительных конфигураций](WEBINAR05_32_EXPERIMENTS.md), с оговоркой о неодинаковом бюджете Optuna и отсутствии новой независимой test-оценки. [ZIP артефакта](../extratrees-v4-artifact.zip) уже в репозитории. **В коде FastAPI и тестах пока используется legacy CatBoost/Blend или учебный fallback; E2E v4 ещё не подтверждён.** Старые метрики в документе сохранены как исторические, не как показатели выбранной модели.

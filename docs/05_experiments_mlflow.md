@@ -22,7 +22,7 @@
 | LightGBM | 0.20174 | 0.25524 | 0.38983 |
 | Blend | **0.25779** | 0.22161 | **0.42373** |
 
-По validation PR-AUC лидирует Blend; нельзя выбирать LightGBM только по test. CatBoost в API — прототип, а не победитель.
+В этом раннем четырёхмодельном сравнении по validation PR-AUC лидировал Blend; нельзя выбирать LightGBM только по test. CatBoost в API — прототип, а не победитель.
 
 ## Как воспроизвести MLflow
 ```bash
@@ -38,7 +38,12 @@ mlflow ui --backend-store-uri file:./mlruns
 Проведён отдельный скрининг **16 семейств моделей × два набора признаков**, включая ExtraTrees, CatBoost, LightGBM, XGBoost и MLP. Полная таблица **всех 32 экспериментов**, PR-AUC, ROC-AUC, параметры Optuna, схема временного разбиения и ограничения приведены в [расширенном журнале вебинара 5](WEBINAR05_32_EXPERIMENTS.md). [CSV с результатами](../experiments/benchmark_16_results.csv). Лидер скрининга — **ExtraTrees + engineered (validation PR-AUC 0,342852)**. **Это только первичный поиск (8 trials для ExtraTrees), не углублённая оптимизация и не подтверждённый MLflow run.** Существующий CatBoost в API пока не заменён.
 
 ## Вывод
-Трекинг делает сравнение воспроизводимым; выбирать модель по test нельзя. По диагностике v3 есть кандидат Blend, но до окончательного выбора нужно завершить логирование и учесть эксплуатационные требования.
+Трекинг делает сравнение воспроизводимым; выбирать модель по test нельзя. После 32-конфигурационного скрининга **выбран ExtraTrees v4 (validation PR-AUC 0,342852)**, но до окончательного выбора нужно завершить логирование и учесть эксплуатационные требования.
 
 ## Next execution environment
 Use Codespaces Python environment (no local Docker), install `mlflow` and `joblib`, then run the existing `experiments/webinar05_mlflow_v3.py` **with the accepted v3 CSV**. The present sandbox still cannot install MLflow from PyPI; no run IDs are claimed.
+
+
+## Решение по модели v4
+
+Итоговый кандидат — **ExtraTreesClassifier, 200 деревьев, глубина 4, минимум 6 объектов в листе**, 13 исходных + 7 engineered признаков. На validation **PR-AUC 0,342852; ROC-AUC 0,803479**. Полный журнал [32 конфигураций](WEBINAR05_32_EXPERIMENTS.md) и [CSV](../experiments/benchmark_16_results.csv), дополнительный поиск [30+30 попыток](../experiments/deep_extratrees_results.json). Последний поиск ограничивал деревья 50–100 и дал 0,312462 для engineered, поэтому не опровергает конфигурацию с 200 деревьями. [Артефакт v4](../extratrees-v4-artifact.zip) опубликован, но ещё не интегрирован в API. **Это не MLflow run; run_id не придумываем.**
