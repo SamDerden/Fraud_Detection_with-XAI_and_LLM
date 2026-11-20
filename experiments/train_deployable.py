@@ -30,7 +30,23 @@ def main():
         raise ValueError("Dataset validation failed: " + ", ".join(check["errors"]))
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values(["timestamp", "transaction_id"]).reset_index(drop=True)
-    a, b = int(len(df) * .6), int(len(df) * .8)
+    if "split" in df.columns:
+        labels = df["split"].astype(str).to_numpy()
+        if set(labels) != {"train", "validation", "test"}:
+            raise ValueError("Expected train/validation/test split labels")
+        import numpy as np
+        train_idx, val_idx, test_idx = (np.flatnonzero(labels == name)
+                                        for name in ("train", "validation", "test"))
+        if not (train_idx.max() < val_idx.min() and val_idx.max() < test_idx.min()):
+            raise ValueError("Splits must be chronological")
+        a, b = len(train_idx), len(train_idx) + len(val_idx)
+        split_description = "explicit chronological split"
+    else:
+        a, b = int(len(df) * .6), int(len(df) * .8)
+        split_description = "chronological 60/20/20"
+    forbidden = {"is_fraud", "transaction_id", "user_id", "merchant_id", "device_id", "split"}
+    if forbidden.intersection(MODEL_FEATURES):
+        raise ValueError("Target or identifier leaked into model features")
     x = df[list(MODEL_FEATURES)].copy()
     for col in CATEGORICAL:
         x[col] = x[col].astype(str)
@@ -56,7 +72,7 @@ def main():
         "categorical": list(CATEGORICAL),
         "dataset_sha256": hashlib.sha256(raw).hexdigest(),
         "rows": {"train": a, "validation": b - a, "test": len(df) - b},
-        "split": "chronological 60/20/20",
+        "split": split_description,
         "review_threshold": min(.999999, float(threshold)),
         "block_threshold": None,
         "test_average_precision": float(average_precision_score(y.iloc[b:], test_scores)),
@@ -73,7 +89,7 @@ def main():
         mlflow.set_experiment("antifraud-educational")
         with mlflow.start_run(run_name="catboost-deployable-v1"):
             mlflow.log_params({"model": "CatBoost", "iterations": 350, "depth": 6,
-                               "split": "chronological_60_20_20", "seed": 42})
+                               "split": split_description, "seed": 42})
             mlflow.log_metrics({k: meta[k] for k in ("test_average_precision", "test_roc_auc", "test_recall", "test_fpr")})
             mlflow.log_artifacts(str(out), artifact_path="model")
             mlflow.set_tag("dataset_sha256", meta["dataset_sha256"])
