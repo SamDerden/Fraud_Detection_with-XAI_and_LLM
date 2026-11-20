@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
+import json
 
 from fastapi import FastAPI, Request
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
@@ -39,10 +40,7 @@ def install_observability(app: FastAPI) -> None:
             elapsed = time.perf_counter() - started
             REQUESTS.labels(request.method, path, str(status)).inc()
             LATENCY.labels(request.method, path).observe(elapsed)
-            logger.info(
-                "request_complete method=%s route=%s status=%d duration_ms=%.1f",
-                request.method, path, status, elapsed * 1000,
-            )
+            logger.info(json.dumps({"event": "request_complete", "method": request.method, "route": path, "status_code": status, "duration_ms": round(elapsed * 1000, 2)}, ensure_ascii=False))
 
     @app.get("/metrics", include_in_schema=False)
     def metrics() -> Response:

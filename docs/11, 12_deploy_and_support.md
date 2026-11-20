@@ -1,23 +1,47 @@
-# Вебинары 11–12 — Docker и мониторинг
+# Вебинары 11 и 12 — контейнеризация и наблюдаемость
 
-## Запуск
+## В11 — Dockerfile и Compose
+Методичка В11 **не требует фактического запуска Docker для сдачи**. Достаточно трёх корректных файлов и комментария к оптимизации. Наши файлы:
+- [requirements.txt](../requirements.txt): зависимости FastAPI, Pydantic, scikit-learn, CatBoost, Prometheus.
+- [Dockerfile](../Dockerfile): `python:3.11-slim` → WORKDIR → COPY requirements → pip install → COPY src → ENV PYTHONPATH → EXPOSE 8000 → CMD `uvicorn antifraud.app:app`.
+- [docker-compose.yml](../docker-compose.yml): **два сервиса** `api` и `prometheus` с портами 8000/9090 и `depends_on`. Prometheus — разрешённый второй логичный компонент вместо PostgreSQL, потому что база логов в архитектуре не нужна.
+
+**Чек-лист оптимизации:** slim-образ ✓; установка requirements до COPY src для Docker cache ✓; нет COPY всего репозитория ✓; pip --no-cache-dir ✓. **Что улучшить:** добавить/проверить `.dockerignore`, закрепить версии зависимостей и запуск от непривилегированного пользователя. Наличие конфигурации не равно успешному Docker build.
+
 ```bash
+docker compose config -q
 docker compose up --build
+curl -i http://127.0.0.1:8000/healthcheck
 ```
-- API: http://127.0.0.1:8000/docs
-- Health: http://127.0.0.1:8000/health
-- Prometheus: http://127.0.0.1:9090
-- Metrics: http://127.0.0.1:8000/metrics
 
-Compose contains two services (`api`, `prometheus`), healthcheck and local loopback port bindings. Prometheus collects request counters and latency histograms. Logs include HTTP method, route template, status and duration; **no transaction/user IDs**.
+## В12 — structured logging, метрики и дашборд
+Методичка В12 требует middleware с JSON-логом (method, path, status, duration), `/metrics`, запросы включая 422, эскиз дашборда из **трёх блоков**, 3–5 сценариев алертов. В коде `src/antifraud/observability.py` middleware логирует JSON с **шаблоном маршрута**, методом, кодом ответа и временем. Не логируются транзакции, идентификаторы клиентов или payload. Метрики предоставляются в **Prometheus text exposition format**, а не JSON из учебного ноутбука — для существующей архитектуры это обоснованная замена.
 
-`ANTIFRAUD_MODEL_DIR` points to a trusted local artifact folder with `model.cbm` and `metadata.json`; mount it inside the container and pass its path as an environment variable. Without it, the app runs an explicitly labeled synthetic fallback, not the CSV-trained model.
+**Реализованные метрики:** `antifraud_http_requests_total{method,route,status}`, `antifraud_http_request_duration_seconds_bucket`. HTTP 422 увеличивает счётчик со статусом 422. Для вычисления error rate и p95 используются запросы PromQL. Прямой факт сбора метрик на новой версии требует smoke.
 
-## Monitoring and alerts (design)
-- 5xx error rate > 1% for 5 minutes: investigate.
-- p95 HTTP latency > 500 ms for 5 minutes: investigate.
-- Increased review rate: check feature quality and distribution shift.
-- Drift: run `experiments/validate_and_drift.py` periodically and review PSI/KS report. Do not retrain automatically.
-- Fraud recall/FPR are delayed-label metrics: **cannot** be inferred from live request logs without confirmed labels.
+### Эскиз дашборда
+| Блок | Метрика | Визуализация |
+|---|---|---|
+| Инфраструктура | RPS, HTTP 5xx rate, p95 latency | 3 временных графика за 1 ч |
+| Продукт | Доля транзакций, отправленных на ручную проверку; распределение по каналам | Линия и stacked bar; **ещё не инструментированы** |
+| Модель | Score distribution, PSI и recall/FPR по подтверждённым delayed labels | Гистограмма + тренды; **ещё не инструментированы** |
 
-Prometheus alert expressions are configured in `monitoring/alerts.yml`; no Alertmanager notification delivery is configured. No live production SLA is claimed.
+### Сценарии алертов (учебный проектный план)
+| Метрика | Порог | Серьёзность | Действие |
+|---|---|---|---|
+| HTTP 5xx rate | >1% за 5 мин | Warning | Проверить ошибки, конфигурацию модели |
+| HTTP 5xx rate | >5% за 10 мин | Critical | Остановить релиз, откатить после решения дежурного |
+| p95 latency | >500 мс за 5 мин | Warning | Проверить модель и нагрузку |
+| Review rate | >2× baseline за 30 мин | Warning | Проверить сдвиг признаков; метрика ещё не реализована |
+| PSI ключевого признака | >0.25 при ежедневном расчёте | Warning | Проверить данные и качество, без автоматического переобучения |
+
+В `monitoring/alerts.yml` реализованы **два** правила Prometheus: 5xx и p95. Остальные три сценария — **проектные**, а не работающие уведомления. Alertmanager для доставки уведомлений не подключён.
+
+### Воспроизводимый smoke
+```bash
+PYTHONPATH=src pytest -q tests/test_api.py tests/test_webinar12_observability.py
+docker compose up --build
+curl -s http://127.0.0.1:8000/metrics
+```
+
+**Сдача:** по В11 — три файла или ссылка на репозиторий; по В12 — ссылка на выполненный Colab с JSON-логами, `/metrics`, эскизом и алертами. Факт отправки преподавателю не подтверждён.
