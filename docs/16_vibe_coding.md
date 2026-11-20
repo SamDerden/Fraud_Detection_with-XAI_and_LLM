@@ -20,3 +20,7 @@
 
 ## Limitations
 The educational dataset is not validated as representative of banking fraud. Score is uncalibrated. No production deployment, real fraud investigation agent, SHAP or Grok integration has been demonstrated. The system must not authorize or block real payments.
+
+
+## Реализованная защита LLM-слоя
+`src/antifraud/llm.py`: внешнему API передаются только имена, направления и SHAP-вклады; пользовательские и платёжные идентификаторы не передаются. Ответ Grok валидируется как JSON с единственным полем `factor_names`; разрешены только признаки из полученного SHAP, без повторов. Свободный текст модели **не используется**, итоговая фраза строится детерминированно. Ошибки сети, отсутствие ключа или недопустимые ответы ведут к безопасному fallback. Данные реальных клиентов использовать без согласования нельзя. Тесты с mock HTTP не подтверждают доступность настоящего Grok API.
