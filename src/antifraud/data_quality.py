@@ -45,5 +45,9 @@ def validate_dataset(frame: pd.DataFrame) -> dict:
         errors.append("hour_timestamp_mismatch")
     if ((frame["day_of_week"] != timestamps.dt.dayofweek) & timestamps.notna()).any():
         errors.append("weekday_timestamp_mismatch")
+    warnings = []
+    count_mismatch = int((frame["tx_count_7d"] < frame["tx_count_24h"]).sum())
+    if count_mismatch:
+        warnings.append(f"tx_count_7d_below_tx_count_24h: {count_mismatch} rows; check feature provenance")
     return {"valid": not errors, "rows": len(frame), "fraud_count": int(frame["is_fraud"].eq(1).sum()),
-            "errors": errors}
+            "errors": errors, "warnings": warnings}
