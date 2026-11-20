@@ -161,7 +161,10 @@ def score_transaction(req: ScoreRequest) -> ScoreResponse:
             raise HTTPException(status_code=422, detail="Missing required engineered features for artifact model")
         hour = req.hour if req.hour is not None else req.timestamp.hour
         weekday = req.day_of_week if req.day_of_week is not None else req.timestamp.weekday()
-        if req.is_new_device != int(req.device_age_days < 7) or req.is_night_tx != int(hour <= 5):
+        utc_timestamp = req.timestamp.astimezone(timezone.utc)
+        if (hour != utc_timestamp.hour or weekday != utc_timestamp.weekday()
+                or req.is_new_device != int(req.device_age_days < 7)
+                or req.is_night_tx != int(hour <= 5)):
             from fastapi import HTTPException
             raise HTTPException(status_code=422, detail="Inconsistent derived features")
         values = {
