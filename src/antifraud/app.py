@@ -136,7 +136,7 @@ def decision_for(score: float) -> Literal["approve", "review", "block"]:
 def health() -> dict:
     artifact = os.getenv("ANTIFRAUD_MODEL_DIR")
     if artifact:
-        _, meta = (load_blend(artifact) if os.getenv('ANTIFRAUD_MODEL_KIND') == 'blend' else load_artifact(artifact))
+        meta = load_blend(artifact)[2] if os.getenv('ANTIFRAUD_MODEL_KIND') == 'blend' else load_artifact(artifact)[1]
         version, demo = meta["model_version"], False
     else:
         if os.getenv("ANTIFRAUD_REQUIRE_ARTIFACT") == "1":
@@ -152,7 +152,7 @@ def health() -> dict:
 def model_info() -> dict:
     artifact = os.getenv("ANTIFRAUD_MODEL_DIR")
     if artifact:
-        _, meta = (load_blend(artifact) if os.getenv('ANTIFRAUD_MODEL_KIND') == 'blend' else load_artifact(artifact))
+        meta = load_blend(artifact)[2] if os.getenv('ANTIFRAUD_MODEL_KIND') == 'blend' else load_artifact(artifact)[1]
         return {"model_version": meta["model_version"], "model_type": meta["model_type"],
                 "n_features": len(meta["features"]), "feature_names": meta["features"],
                 "training_data": "local_csv", "demo_only": False,
