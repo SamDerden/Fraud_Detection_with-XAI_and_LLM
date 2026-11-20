@@ -1,6 +1,6 @@
 """Train a reproducible *educational* CatBoost model from local validated data.
 
-Uses 60% train, 20% validation (threshold), 20% untouched test.
+Uses explicit train/validation/test labels when provided; otherwise chronological 60/20/20.
 The exported model is trained on the train portion only; metadata records the split.
 Never use this artifact for real banking decisions.
 """
@@ -47,6 +47,8 @@ def main():
     forbidden = {"is_fraud", "transaction_id", "user_id", "merchant_id", "device_id", "split"}
     if forbidden.intersection(MODEL_FEATURES):
         raise ValueError("Target or identifier leaked into model features")
+    if len(df) == 7000 and "split" in df.columns and (a, b) != (5000, 6000):
+        raise ValueError("v3 requires 5000/1000/1000 rows")
     x = df[list(MODEL_FEATURES)].copy()
     for col in CATEGORICAL:
         x[col] = x[col].astype(str)
@@ -67,7 +69,7 @@ def main():
     model.save_model(str(out / "model.cbm"))
     meta = {
         "model_type": "CatBoostClassifier",
-        "model_version": "catboost-educational-v1",
+        "model_version": "catboost-educational-v3" if "split" in df.columns else "catboost-educational-v1",
         "features": list(MODEL_FEATURES),
         "categorical": list(CATEGORICAL),
         "dataset_sha256": hashlib.sha256(raw).hexdigest(),
@@ -83,6 +85,8 @@ def main():
         "disclaimer": "Synthetic educational data; review only; no automatic blocking",
     }
     (out / "metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    if not 0 <= float(threshold) <= 1:
+        raise ValueError("No valid validation threshold under FPR cap")
     if args.mlflow_uri:
         import mlflow
         mlflow.set_tracking_uri(args.mlflow_uri)
