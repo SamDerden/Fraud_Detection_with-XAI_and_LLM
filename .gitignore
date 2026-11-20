@@ -26,3 +26,5 @@ mlruns/
 
 # The vetted educational v3 archive is deliberately versioned once in GitHub.
 !catboost-v3-artifact.zip
+
+!blend-v3-artifact.zip

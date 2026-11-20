@@ -19,6 +19,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 from antifraud.observability import install_observability
 from antifraud.model_artifact import predict_from_artifact, load_artifact
+from antifraud.blend import load_blend, score_and_explain
 from antifraud.explain import explain_prediction
 from antifraud.llm import explain_with_optional_grok
 
@@ -135,7 +136,7 @@ def decision_for(score: float) -> Literal["approve", "review", "block"]:
 def health() -> dict:
     artifact = os.getenv("ANTIFRAUD_MODEL_DIR")
     if artifact:
-        _, meta = load_artifact(artifact)
+        _, meta = (load_blend(artifact) if os.getenv('ANTIFRAUD_MODEL_KIND') == 'blend' else load_artifact(artifact))
         version, demo = meta["model_version"], False
     else:
         if os.getenv("ANTIFRAUD_REQUIRE_ARTIFACT") == "1":
@@ -151,7 +152,7 @@ def health() -> dict:
 def model_info() -> dict:
     artifact = os.getenv("ANTIFRAUD_MODEL_DIR")
     if artifact:
-        _, meta = load_artifact(artifact)
+        _, meta = (load_blend(artifact) if os.getenv('ANTIFRAUD_MODEL_KIND') == 'blend' else load_artifact(artifact))
         return {"model_version": meta["model_version"], "model_type": meta["model_type"],
                 "n_features": len(meta["features"]), "feature_names": meta["features"],
                 "training_data": "local_csv", "demo_only": False,
@@ -193,9 +194,12 @@ def score_transaction(req: ScoreRequest) -> ScoreResponse:
             "is_night_tx": req.is_night_tx, "channel": req.channel,
             "country": req.country,
         }
-        score, meta = predict_from_artifact(artifact, values)
-        shap = explain_prediction(artifact, values)
-        explanation, explanation_method = explain_with_optional_grok(shap["top_factors"])
+        if os.getenv('ANTIFRAUD_MODEL_KIND') == 'blend':
+            score, meta, factors = score_and_explain(artifact, values)
+        else:
+            score, meta = predict_from_artifact(artifact, values)
+            factors = explain_prediction(artifact, values)['top_factors']
+        explanation, explanation_method = explain_with_optional_grok(factors)
         # A score from synthetic labels is NOT a calibrated fraud probability.
         # Never automatically block based on this educational model.
         decision = "review" if score >= meta["review_threshold"] else "approve"
@@ -204,7 +208,7 @@ def score_transaction(req: ScoreRequest) -> ScoreResponse:
             explanation=explanation,
             model_version=meta["model_version"], transaction_id=req.transaction_id,
             demo_only=False, explanation_method=explanation_method,
-            top_factors=shap["top_factors"],
+            top_factors=factors,
         )
     if os.getenv("ANTIFRAUD_REQUIRE_ARTIFACT") == "1":
         from fastapi import HTTPException

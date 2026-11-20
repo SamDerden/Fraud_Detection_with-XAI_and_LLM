@@ -10,10 +10,29 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT = ROOT / "artifacts" / "catboost-v3"
+BLEND = ROOT / "artifacts" / "blend-v3"
 EXPECTED_VERSION = "catboost-educational-v3"
 
 
 def prepare():
+    BLEND.mkdir(parents=True, exist_ok=True)
+    archive = ROOT / "blend-v3-artifact.zip"
+    names = ("catboost.cbm", "lightgbm.joblib", "metadata.json")
+    if archive.is_file() and not all((BLEND / name).is_file() for name in names):
+        import shutil
+        with zipfile.ZipFile(archive) as z:
+            for name in names:
+                with z.open("blend-v3/" + name) as source, (BLEND / name).open("wb") as dest:
+                    shutil.copyfileobj(source, dest)
+    if all((BLEND / name).is_file() for name in names):
+        from antifraud.blend import load_blend
+        _, _, meta = load_blend(str(BLEND))
+        os.environ["ANTIFRAUD_MODEL_DIR"] = str(BLEND)
+        os.environ["ANTIFRAUD_MODEL_KIND"] = "blend"
+        os.environ["ANTIFRAUD_REQUIRE_ARTIFACT"] = "1"
+        print("Загружен ансамбль:", meta["model_version"], flush=True)
+        configure_llm()
+        return
     ARTIFACT.mkdir(parents=True, exist_ok=True)
     if not ((ARTIFACT / "model.cbm").is_file() and (ARTIFACT / "metadata.json").is_file()):
         candidates = [ROOT / "catboost-v3-artifact.zip", ROOT / "artifacts" / "catboost-v3-artifact.zip"]
@@ -39,6 +58,10 @@ def prepare():
     print("Загружена модель:", meta["model_version"], "|", meta["model_type"], flush=True)
     os.environ["ANTIFRAUD_MODEL_DIR"] = str(ARTIFACT)
     os.environ["ANTIFRAUD_REQUIRE_ARTIFACT"] = "1"
+    configure_llm()
+
+
+def configure_llm():
     if os.getenv("GROQ_API_KEY"):
         os.environ.setdefault("ANTIFRAUD_LLM_ENABLED", "true")
         os.environ.setdefault("ANTIFRAUD_LLM_PROVIDER", "groq")
