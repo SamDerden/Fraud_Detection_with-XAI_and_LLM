@@ -25,9 +25,9 @@
 @media(max-width:800px){#webinars .story-unit,#engineering .story-unit,#intelligence .story-unit{grid-template-columns:1fr;padding:22px;gap:10px}#webinars .story-columns p,#engineering .story-columns p,#intelligence .story-columns p{font-size:15px}}
 
 /* Align paired form controls on a common baseline even when a label wraps. */
-#score-form .fields>.field{min-width:0;justify-content:flex-end;line-height:1.45}
-#score-form .fields>.field>input,#score-form .fields>.field>select{margin-top:auto;flex-shrink:0;min-height:44px}
-#score-form .fields{align-items:stretch}
+#form .fields>.field{min-width:0;justify-content:flex-end;line-height:1.45}
+#form .fields>.field>input,#form .fields>.field>select{margin-top:auto;flex-shrink:0;min-height:44px}
+#form .fields{align-items:stretch}
 </style></head>
 <body><div class="shell"><aside class="sidebar"><div class="brand">⬡ Antifraud <span>AI</span></div><div class="tag">ML + XAI + LLM · учебный прототип</div><div class="nav-wrap"><button class="nav active" data-tab="analyze">◈ Анализ транзакции</button><button class="nav" data-tab="team">◇ Команда и разработка</button><button class="nav" data-tab="model">◉ О модели</button><button class="nav" data-tab="metrics">▥ Метрики и результаты</button><button class="nav" data-tab="webinars">▦ О проекте</button><button class="nav" data-tab="engineering">▤ Данные и эксплуатация</button><button class="nav" data-tab="intelligence">✧ Интеллект и безопасность</button><button class="nav" data-tab="examples">▤ Примеры кейсов</button><button class="nav" data-tab="api">⌘ API (Swagger)</button></div></aside>
 <main class="main"><section id="analyze" class="section active"><h1>Анализ транзакций на мошенничество</h1><p class="sub">Проверь операцию с помощью ExtraTrees v4, диагностических факторов и опционального LLM.</p><div class="grid"><div class="panel"><h2>◈ Параметры транзакции</h2><form id="form"><div class="fields">
