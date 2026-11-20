@@ -50,3 +50,7 @@ weighted avg      0.922     0.923     0.915       750
 
 **Главное слабое место:** Recall ≈ 0.57 — модель пропускает часть фрода.  
 **Рекомендация:** `class_weight='balanced'` или подбор threshold.
+
+
+## Актуальная тестовая стратегия
+`tests/test_behavior.py`, `tests/test_quality_drift.py`, `tests/test_artifact.py` и `tests/test_api.py` проверяют вероятности, крайние значения, API-контракт, ошибки входных данных, качество датасета и схему модели. `experiments/compare_four_models.py` фиксирует PR-AUC, ROC-AUC, precision, recall, FPR и confusion matrix на отдельном хронологическом тесте. Ранее опубликованные учебные метрики (например recall 0.5714) **не являются оценкой новой модели на 5 000 транзакций**.
