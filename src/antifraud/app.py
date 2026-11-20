@@ -167,7 +167,10 @@ def score_transaction(req: ScoreRequest) -> ScoreResponse:
                 or req.is_night_tx != int(hour <= 5)):
             from fastapi import HTTPException
             raise HTTPException(status_code=422, detail="Inconsistent derived features")
-        if req.tx_count_7d < req.tx_count_24h or req.distinct_merchants_7d > req.tx_count_7d:\n            from fastapi import HTTPException\n            raise HTTPException(status_code=422, detail="Inconsistent transaction history counts")\n        values = {
+        if req.tx_count_7d < req.tx_count_24h or req.distinct_merchants_7d > req.tx_count_7d:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=422, detail="Inconsistent transaction history counts")
+        values = {
             "amount": req.amount, "hour": hour, "day_of_week": weekday,
             "avg_amount_30d": req.avg_amount_30d, "tx_count_24h": req.tx_count_24h,
             "tx_count_7d": req.tx_count_7d,
