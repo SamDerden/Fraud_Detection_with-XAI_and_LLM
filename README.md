@@ -133,3 +133,13 @@ PYTHONPATH=src python experiments/compare_four_models.py --data /path/to/transac
 
 ### Артефакт v3 и учебные маршруты вебинара 9
 Локально экспортирована CatBoost-модель `catboost-educational-v3` с метаданными и проверкой SHAP. Архив передаётся отдельно от GitHub; проект не переключает API на v3 автоматически. Для использования распакуйте архив в `artifacts/catboost-v3` и установите `ANTIFRAUD_MODEL_DIR` на этот каталог. Добавлены совместимые учебные маршруты `POST /predict`, `GET /healthcheck`, `GET /model-info`; основными остаются `/v1/score`, `/health`, `/v1/model-info`. См. [отчёт](docs/V3_BENCHMARK.md). Проверки последнего коммита отслеживаются в GitHub Actions; live LLM и MLflow пока не подтверждены.
+
+
+## Практика вебинаров 1–4: актуализирована
+- [В01 — жизненный цикл](docs/01_lifecycle.md)
+- [В02 — архитектура (Mermaid, 7 блоков)](docs/02_architecture.md)
+- [В03 — текстовый контракт API](docs/03_contract.md)
+- [В04 — MLOps-профиль и roadmap](docs/04_mlops_profile.md)
+- [Контрольная ведомость В01–В04](docs/WEBINARS_01_04_REVIEW.md)
+
+Документы отражают текущее состояние проекта: CatBoost остаётся техническим прототипом, финальная модель не утверждена; production, canary и MLflow v3 не объявляются выполненными. Официальная сдача в Holst/Google Docs требует отдельного подтверждения.
