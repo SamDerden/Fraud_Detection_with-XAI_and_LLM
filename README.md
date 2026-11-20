@@ -94,3 +94,12 @@ PYTHONPATH=src python experiments/audit_features_thresholds.py \
   --model artifacts/catboost-educational-v1/model.cbm
 ```
 The report compares validation-selected review thresholds at 1%, 2%, 3%, 5%, 10%, 15%, 20% validation FPR caps, reports test performance, overlapping users and 7-day/24-hour count inconsistencies. **Do not optimize thresholds on the test set.** Historical feature provenance and true concept drift remain unverified.
+
+
+### Демонстрация API + SHAP без Grok-ключа
+```bash
+PYTHONPATH=src python experiments/demo_smoke.py \
+  --data /path/to/antifraud_transactions_dataset.csv \
+  --artifact artifacts/catboost-educational-v1 --rows 3
+```
+The script sends three educational examples through FastAPI TestClient and prints score, review/approve decision, SHAP factor names, and grounded Russian explanation. It does not print original transaction/user IDs. It deliberately disables external LLM calls.
