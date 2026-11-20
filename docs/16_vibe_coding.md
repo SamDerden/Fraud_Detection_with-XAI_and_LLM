@@ -1,26 +1,31 @@
-# Вебинар 16 — AI code review, безопасность и ограничения
+# Вебинар 16 — vibe-coding, ответственность, безопасность и итоговый code review
 
-## Проверка рисков
-- **Security:** earlier notebook `Семинар_9.ipynb` contained an embedded ngrok auth token. Current version reads `NGROK_AUTHTOKEN` from the environment. **The exposed token must be revoked by its owner**; editing the file does not erase Git history.
-- **Correctness:** model-training notebooks and CSV dataset have different origins and class ratios. Results must not be mixed.
-- **Best practices:** explicit validation and tests, versioned artifact metadata, deterministic seeds, train/validation/test split.
-- **Data protection:** avoid logging customer identifiers, commit no real transaction data or model artifacts. `.gitignore` excludes CSVs, artifacts, secrets.
-- **Bias:** geographic feature `country` is included in the educational candidate; inspect subgroup false-positive rates before considering any real use.
-- **LLM hallucination:** Grok/SHAP are architectural intentions, not integrated in the current API. Current explanation explicitly says so.
+**Источник:** лекция «В16_Vibe_coding_этика_безопасность_и_итоги.pdf». Отдельная точная практическая методичка В16 в доступных материалах **не найдена**. Ниже — аудит по темам лекции, а не выдуманный список обязательных заданий.
 
-## AI-assisted review checklist
-1. Are secrets stored only in environment/secret manager?
-2. Are data provenance and licenses confirmed?
-3. Are train/validation/test splits leakage-free?
-4. Is the API contract validated with negative tests?
-5. Does fallback avoid silently blocking real transactions?
-6. Are explanations grounded in model outputs?
-7. Are drift alerts separated from retraining triggers?
-8. Are model metrics based on independent holdout labels?
+## Риск-ориентированный подход
+Цена ошибки в антифроде высока: false negative пропускает мошенничество, false positive может создать неудобства добросовестному клиенту. Учебный синтетический API не должен использоваться для реальных платежей. Ответственность за принятый AI-код несёт команда, а не генератор.
 
-## Limitations
-The educational dataset is not validated as representative of banking fraud. Score is uncalibrated. No production deployment, real fraud investigation agent, SHAP or Grok integration has been demonstrated. The system must not authorize or block real payments.
+## Аудит по темам лекции
+| Категория | Что обнаружено в проекте | Приоритет / действие | Статус |
+|---|---|---|---|
+| Секреты | Ранее в истории Git присутствовал ngrok-токен | **P0**: владелец должен отозвать токен; удаление из текущего файла не очищает историю | **Не подтверждено**, что токен отозван |
+| PII | Входной API принимает user_id/transaction_id | Не писать payload в HTTP-логи и не передавать идентификаторы LLM | Middleware логирует только маршрут/метод/статус/время; полный security audit не завершён |
+| Корректность | Модель CatBoost в API — технический прототип, validation лидер — ансамбль | Утвердить кандидата и проверить E2E v3 | Открыто |
+| Данные | v3 синтетический; связь нового устройства с fraud очень сильна | Проверить переносимость на другие генераторы и новых пользователей | Открыто |
+| Bias/fairness | Признак country и другие корреляты могут создавать неравные FPR | Отчёт по подгруппам с достаточным размером выборок | Открыто |
+| Prompt injection | Внешние данные могут содержать инструкции для LLM | Только allowlist имён SHAP, структурированный ответ и fallback | Частично реализовано в `llm.py` |
+| Галлюцинации | LLM может придумывать причины риска | Не использовать свободный текст LLM, детерминированное объяснение из SHAP | Реализовано в коде; live Grok не подтверждён |
+| Эксплуатация | CI, Docker и мониторинг существуют | Подтвердить запуск и отказоустойчивость | Открыто |
+| Правовой аспект | Нет подтверждения лицензирования внешних датасетов/кода | Вести provenance и лицензии; реальные данные не использовать | Открыто |
 
+## Критерии приёмки AI-кода
+1. Нет секретов в актуальном дереве и отозваны ранее раскрытые ключи.
+2. Все новые функции покрыты тестами, включая негативные сценарии.
+3. Метрики рассчитаны без подбора модели на test.
+4. Нет необоснованных обещаний банковской точности или production-готовности.
+5. LLM не может принять решение о блокировке и не получает PII.
+6. При ошибках внешнего сервиса сохраняется безопасное объяснение или явная эскалация.
+7. Проверены fairness и drift перед реальным использованием.
 
-## Реализованная защита LLM-слоя
-`src/antifraud/llm.py`: внешнему API передаются только имена, направления и SHAP-вклады; пользовательские и платёжные идентификаторы не передаются. Ответ Grok валидируется как JSON с единственным полем `factor_names`; разрешены только признаки из полученного SHAP, без повторов. Свободный текст модели **не используется**, итоговая фраза строится детерминированно. Ошибки сети, отсутствие ключа или недопустимые ответы ведут к безопасному fallback. Данные реальных клиентов использовать без согласования нельзя. Тесты с mock HTTP не подтверждают доступность настоящего Grok API.
+## Вывод
+В проекте есть полезные средства защиты (валидация входа, SHAP, allowlist для LLM, тесты), но **проект остаётся образовательным**. Не подтверждены отзыв старого токена, итоговый E2E с моделью v3, репрезентативность данных, реальная банковская эксплуатация. Это реальные ограничения, а не формальные замечания.
