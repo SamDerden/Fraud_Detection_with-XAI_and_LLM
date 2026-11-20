@@ -38,3 +38,35 @@
 │   ├── 14_AI_agent.md               # Проектирование ИИ агента
 │   ├── 15_prompt_engineering.md     # Использование ИИ-ассистентов и промпт-инжиниринг
 │   ├── 16_vibe_coding.md            # Ответственный ИИ, мониторинг и ограничения
+
+
+## Реальный статус реализации (20.11.2026)
+Это **учебный прототип**, не готовый банковский антифрод. В репозитории есть FastAPI, синтетический fallback, код для сохранённой CatBoost-модели, тесты, Docker Compose, Prometheus и эксперименты. Grok и SHAP **ещё не интегрированы** в работающий API; текст объяснения прямо указывает на это. Порог модели выбран по валидации, вероятность не откалибрована. Никакой реальной блокировки платежей нет.
+
+### Локальные эксперименты
+```bash
+python -m pip install -r experiments/requirements.txt
+PYTHONPATH=src python experiments/validate_and_drift.py --data /path/to/antifraud_transactions_dataset.csv
+PYTHONPATH=src python experiments/compare_four_models.py --data /path/to/antifraud_transactions_dataset.csv --mlflow-uri file:./mlruns
+PYTHONPATH=src python experiments/train_deployable.py --data /path/to/antifraud_transactions_dataset.csv --out artifacts/catboost-educational-v1 --mlflow-uri file:./mlruns
+```
+
+**Данные не коммитить:** CSV должен быть учебным/синтетическим и разрешённым к использованию. `mlruns/` и `artifacts/` исключены через `.gitignore`.
+
+### API с сохранённой моделью
+```bash
+python -m pip install -r requirements.txt
+ANTIFRAUD_MODEL_DIR=artifacts/catboost-educational-v1 PYTHONPATH=src uvicorn antifraud.app:app --host 127.0.0.1 --port 8000
+```
+Swagger: http://127.0.0.1:8000/docs. Запрос — см. `docs/03_contract.md`. Для Docker:
+```bash
+ANTIFRAUD_MODEL_DIR=/models/catboost-educational-v1 docker compose up --build
+```
+Compose монтирует локальную папку `./artifacts` внутрь `/models`. Без переменной API использует демонстрационную модель, обучаемую при первом запросе. Для безопасной демонстрации это допустимо; для реальной эксплуатации — нет.
+
+### Проверки
+```bash
+PYTHONPATH=src pytest -q
+docker compose config -q
+```
+GitHub Actions также проверяет Docker build. Наличие кода не заменяет успешный CI и ручной smoke-тест. **Ранее опубликованный ngrok-токен необходимо отозвать у провайдера; изменение ноутбука не очищает Git-историю.**
