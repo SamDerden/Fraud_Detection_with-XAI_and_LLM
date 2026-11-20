@@ -20,4 +20,4 @@ Compose contains two services (`api`, `prometheus`), healthcheck and local loopb
 - Drift: run `experiments/validate_and_drift.py` periodically and review PSI/KS report. Do not retrain automatically.
 - Fraud recall/FPR are delayed-label metrics: **cannot** be inferred from live request logs without confirmed labels.
 
-These are alert rules **proposed**, not configured in Alertmanager. No live production SLA is claimed.
+Prometheus alert expressions are configured in `monitoring/alerts.yml`; no Alertmanager notification delivery is configured. No live production SLA is claimed.
