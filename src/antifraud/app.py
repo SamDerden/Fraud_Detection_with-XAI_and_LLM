@@ -14,6 +14,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field, field_validator
 from sklearn.ensemble import RandomForestClassifier
 
+from antifraud.observability import install_observability
+
 FEATURE_NAMES = (
     "amount_log", "hour", "day_of_week", "tx_count_24h", "tx_count_7d",
     "distinct_merchants_7d", "distinct_countries_30d", "device_age_days",
@@ -21,6 +23,7 @@ FEATURE_NAMES = (
 )
 MODEL_VERSION = "synthetic-demo-v1"
 app = FastAPI(title="Antifraud synthetic demo", version="0.1.0")
+install_observability(app)
 
 
 class ScoreRequest(BaseModel):
