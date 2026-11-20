@@ -8,7 +8,7 @@
   "portsAttributes": {
     "8000": {
       "label": "Antifraud Swagger",
-      "onAutoForward": "notify"
+      "onAutoForward": "openBrowser"
     }
   },
   "customizations": {
@@ -18,5 +18,6 @@
         "ms-python.vscode-pylance"
       ]
     }
-  }
+  },
+  "postStartCommand": "bash scripts/autostart_codespaces.sh"
 }

@@ -23,3 +23,6 @@ data_quality_and_drift.json
 mlruns/
 *.cbm
 *.joblib
+
+# The vetted educational v3 archive is deliberately versioned once in GitHub.
+!catboost-v3-artifact.zip

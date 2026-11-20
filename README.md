@@ -1,3 +1,11 @@
+## Автоматический Codespaces — после однократного добавления модели в GitHub
+
+В корне GitHub-репозитория должен находиться **catboost-v3-artifact.zip** (проверенный учебный CatBoost v3, около 140 КБ). Это **одноразовая публикация артефакта в репозиторий**, а не загрузка в каждый Codespace. Данные синтетические; приватные банковские данные и API-ключи в GitHub не добавлять.
+
+После появления архива в `main` новый Codespace автоматически установит зависимости и при запуске среды запустит `scripts/start_codespaces.py` на порту 8000. Открывайте PORTS → 8000 → /docs. Если архива нет, система явно сообщает об этом и **не запускает** подменную RandomForest. Код автоматически проверяет метаданные CatBoost и при наличии `GROQ_API_KEY` включает GroqCloud. Секрет должен быть настроен в Codespaces Secrets для соответствующего репозитория.
+
+Для уже созданного Codespace: `git pull origin main`, затем `bash scripts/autostart_codespaces.sh`. В случае ошибок — `cat /tmp/antifraud-codespaces.log`.
+
 ## Основной запуск демонстрации в GitHub Codespaces (CatBoost v3, без заглушки)
 
 1. В Codespaces остановите предыдущий uvicorn (Ctrl+C).
