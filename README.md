@@ -125,3 +125,7 @@ PYTHONPATH=src python experiments/compare_four_models.py --data /path/to/transac
 
 ## Единый реестр практик (вебинары 1–16)
 [Покрытие заданий, артефакты и честный статус проверки](docs/PRACTICE_COVERAGE.md). Этот документ фиксирует, что уже есть в репозитории, и что ещё нельзя считать подтверждённым. Скрипты `experiments/compare_four_models.py` и `experiments/train_deployable.py` учитывают явное разбиение v3 на 5 000/1 000/1 000.
+
+
+### Первый подтверждённый локальный benchmark v3
+Результаты четырёх кандидатов и ограничения: [docs/V3_BENCHMARK.md](docs/V3_BENCHMARK.md). MLflow и CI для этого запуска пока не подтверждены.
