@@ -143,3 +143,13 @@ PYTHONPATH=src python experiments/compare_four_models.py --data /path/to/transac
 - [Контрольная ведомость В01–В04](docs/WEBINARS_01_04_REVIEW.md)
 
 Документы отражают текущее состояние проекта: CatBoost остаётся техническим прототипом, финальная модель не утверждена; production, canary и MLflow v3 не объявляются выполненными. Официальная сдача в Holst/Google Docs требует отдельного подтверждения.
+
+
+## Практика вебинаров 5–8 (20.11.2026)
+- [В05 — MLflow на v3](docs/05_experiments_mlflow.md) и [скрипт трёх запусков](experiments/webinar05_mlflow_v3.py)
+- [В06 — проверка **старого исходного датасета**](docs/06_data_validation.md) и [валидатор](experiments/webinar06_validate_legacy.py)
+- [В07 — модельные тесты v3](docs/07_model_testing.md) и [pytest](tests/test_webinar07_quality.py)
+- [В08 — unit/integration mock](docs/08_testing_strategy.md) и [pytest](tests/test_webinar08_components.py)
+- [Контрольная ведомость В05–В08](docs/WEBINARS_05_08_REVIEW.md)
+
+**Разделение данных:** В06 использует только исходный проблемный CSV 5 000 строк, сохраняемый без исправлений. В05 и В07 используют принятый v3 7 000 строк; В08 — mock. Локально тесты В07+В08: **17 passed** при предоставленном v3. MLflow/Great Expectations в текущей среде недоступны; их успешный запуск **не заявляется**. Не путать с официальной сдачей в Colab.
