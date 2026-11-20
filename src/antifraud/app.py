@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import lru_cache
+import os
 from typing import Literal
 
 import numpy as np
@@ -15,6 +16,7 @@ from pydantic import BaseModel, Field, field_validator
 from sklearn.ensemble import RandomForestClassifier
 
 from antifraud.observability import install_observability
+from antifraud.model_artifact import predict_from_artifact, load_artifact
 
 FEATURE_NAMES = (
     "amount_log", "hour", "day_of_week", "tx_count_24h", "tx_count_7d",
@@ -31,7 +33,11 @@ class ScoreRequest(BaseModel):
     user_id: str = Field(min_length=1)
     amount: float = Field(gt=0, allow_inf_nan=False)
     timestamp: datetime
-    currency: str = "RUB"
+    currency: Literal["RUB"] = "RUB"
+    country: str = Field(default="RU", min_length=2, max_length=2)
+    avg_amount_30d: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    is_new_device: int | None = Field(default=None, ge=0, le=1)
+    is_night_tx: int | None = Field(default=None, ge=0, le=1)
     hour: int | None = Field(default=None, ge=0, le=23)
     day_of_week: int | None = Field(default=None, ge=0, le=6)
     tx_count_24h: int = Field(default=0, ge=0)
@@ -116,13 +122,26 @@ def decision_for(score: float) -> Literal["approve", "review", "block"]:
 
 @app.get("/health")
 def health() -> dict:
-    get_model()
-    return {"status": "ok", "model_version": MODEL_VERSION, "demo_only": True,
+    artifact = os.getenv("ANTIFRAUD_MODEL_DIR")
+    if artifact:
+        _, meta = load_artifact(artifact)
+        version, demo = meta["model_version"], False
+    else:
+        get_model()
+        version, demo = MODEL_VERSION, True
+    return {"status": "ok", "model_version": version, "demo_only": demo,
             "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/v1/model-info")
 def model_info() -> dict:
+    artifact = os.getenv("ANTIFRAUD_MODEL_DIR")
+    if artifact:
+        _, meta = load_artifact(artifact)
+        return {"model_version": meta["model_version"], "model_type": meta["model_type"],
+                "n_features": len(meta["features"]), "feature_names": meta["features"],
+                "training_data": "local_csv", "demo_only": False,
+                "review_threshold": meta["review_threshold"], "block_threshold": None}
     return {"model_version": MODEL_VERSION, "model_type": "RandomForestClassifier",
             "n_features": len(FEATURE_NAMES), "feature_names": list(FEATURE_NAMES),
             "training_data": "synthetic", "demo_only": True}
@@ -130,6 +149,37 @@ def model_info() -> dict:
 
 @app.post("/v1/score", response_model=ScoreResponse)
 def score_transaction(req: ScoreRequest) -> ScoreResponse:
+    artifact = os.getenv("ANTIFRAUD_MODEL_DIR")
+    if artifact:
+        # No implicit defaults for engineered features: the caller must supply them.
+        if req.avg_amount_30d is None or req.is_new_device is None or req.is_night_tx is None:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=422, detail="Missing required engineered features for artifact model")
+        hour = req.hour if req.hour is not None else req.timestamp.hour
+        weekday = req.day_of_week if req.day_of_week is not None else req.timestamp.weekday()
+        if req.is_new_device != int(req.device_age_days < 7) or req.is_night_tx != int(hour <= 5):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=422, detail="Inconsistent derived features")
+        values = {
+            "amount": req.amount, "hour": hour, "day_of_week": weekday,
+            "avg_amount_30d": req.avg_amount_30d, "tx_count_24h": req.tx_count_24h,
+            "tx_count_7d": req.tx_count_7d,
+            "distinct_merchants_7d": req.distinct_merchants_7d,
+            "distinct_countries_30d": req.distinct_countries_30d,
+            "device_age_days": req.device_age_days, "is_new_device": req.is_new_device,
+            "is_night_tx": req.is_night_tx, "channel": req.channel,
+            "country": req.country,
+        }
+        score, meta = predict_from_artifact(artifact, values)
+        # A score from synthetic labels is NOT a calibrated fraud probability.
+        # Never automatically block based on this educational model.
+        decision = "review" if score >= meta["review_threshold"] else "approve"
+        return ScoreResponse(
+            risk_score=round(score, 4), decision=decision,
+            explanation="Educational model score; explanation is not SHAP or LLM-generated",
+            model_version=meta["model_version"], transaction_id=req.transaction_id,
+            demo_only=False,
+        )
     score = float(get_model().predict_proba(build_features(req))[0, 1])
     decision = decision_for(score)
     return ScoreResponse(
