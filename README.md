@@ -129,3 +129,7 @@ PYTHONPATH=src python experiments/compare_four_models.py --data /path/to/transac
 
 ### Первый подтверждённый локальный benchmark v3
 Результаты четырёх кандидатов и ограничения: [docs/V3_BENCHMARK.md](docs/V3_BENCHMARK.md). MLflow и CI для этого запуска пока не подтверждены.
+
+
+### Артефакт v3 и учебные маршруты вебинара 9
+Локально экспортирована CatBoost-модель `catboost-educational-v3` с метаданными и проверкой SHAP. Архив передаётся отдельно от GitHub; проект не переключает API на v3 автоматически. Для использования распакуйте архив в `artifacts/catboost-v3` и установите `ANTIFRAUD_MODEL_DIR` на этот каталог. Добавлены совместимые учебные маршруты `POST /predict`, `GET /healthcheck`, `GET /model-info`; основными остаются `/v1/score`, `/health`, `/v1/model-info`. См. [отчёт](docs/V3_BENCHMARK.md). Проверки последнего коммита отслеживаются в GitHub Actions; live LLM и MLflow пока не подтверждены.
