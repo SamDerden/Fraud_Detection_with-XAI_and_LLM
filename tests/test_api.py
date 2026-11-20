@@ -65,3 +65,21 @@ def test_synthetic_training_shape():
     x, y = synthetic_training_data(100)
     assert x.shape == (100, 12)
     assert set(y).issubset({0, 1})
+
+
+def test_prometheus_metrics():
+    client.get("/health")
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    assert "antifraud_http_requests_total" in response.text
+    assert "antifraud_http_request_duration_seconds" in response.text
+
+
+def test_no_pii_in_metrics():
+    client.post("/v1/score", json={**VALID, "user_id": "sensitive-user-xyz"})
+    assert "sensitive-user-xyz" not in client.get("/metrics").text
+
+
+def test_invalid_feature_rejected():
+    response = client.post("/v1/score", json={**VALID, "tx_count_24h": -1})
+    assert response.status_code == 422
