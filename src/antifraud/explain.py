@@ -59,4 +59,4 @@ def deterministic_explanation(factors: list[dict]) -> str:
         segments.append("Повышают оценку риска: " + ", ".join(raised))
     if lowered:
         segments.append("Снижают оценку риска: " + ", ".join(lowered))
-    return ". ".join(segments) + ". Это вклады SHAP, а не доказательство мошенничества."
+    return ". ".join(segments) + ". Это диагностические факторы модели, а не доказательство мошенничества."
