@@ -42,6 +42,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", required=True, help="Local teaching CSV; do not commit customer data")
     parser.add_argument("--output", default="four_model_comparison.json")
+    parser.add_argument("--mlflow-uri", default=None, help="Optional local MLflow tracking URI")
     args = parser.parse_args()
     raw = Path(args.data).read_bytes()
     df = pd.read_csv(args.data)
@@ -93,6 +94,24 @@ def main():
                     "Blend weight tuned on validation: exploratory", "No probability calibration",
                     "Feature provenance and leakage require review"],
     }
+    if args.mlflow_uri:
+        import mlflow
+        mlflow.set_tracking_uri(args.mlflow_uri)
+        mlflow.set_experiment("antifraud-four-model-benchmark")
+        for model_name, result in results.items():
+            with mlflow.start_run(run_name=model_name):
+                mlflow.log_params({"model": model_name, "split": "chronological_60_20_20",
+                                   "seed": 42, "max_validation_fpr": 0.10})
+                mlflow.log_metrics({"test_" + k: v for k, v in result["test"].items()
+                                    if isinstance(v, (int, float))})
+                mlflow.log_metrics({"validation_" + k: v for k, v in result["validation"].items()
+                                    if isinstance(v, (int, float))})
+                mlflow.set_tag("dataset_sha256", report["dataset_sha256"])
+                if model_name == "Blend CatBoost+LightGBM":
+                    mlflow.log_param("catboost_weight", float(weight))
+        # Save the complete comparison as an artifact in the final run.
+        with mlflow.start_run(run_name="benchmark-summary"):
+            mlflow.log_dict(report, "four_model_comparison.json")
     Path(args.output).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
