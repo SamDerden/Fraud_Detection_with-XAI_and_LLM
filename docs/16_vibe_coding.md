@@ -29,3 +29,6 @@
 
 ## Вывод
 В проекте есть полезные средства защиты (валидация входа, SHAP, allowlist для LLM, тесты), но **проект остаётся образовательным**. Не подтверждены отзыв старого токена, итоговый E2E с моделью v3, репрезентативность данных, реальная банковская эксплуатация. Это реальные ограничения, а не формальные замечания.
+
+## LLM provider security update
+The explanation layer now supports `grok`, `groq`, and `openrouter` via **fixed allowlisted endpoints** and environment-only API keys. Invalid providers fail closed to deterministic SHAP; user IDs and transaction payloads are never sent to LLM. The legacy `explain_with_optional_grok` function name remains for compatibility. No live provider request has been verified; previously exposed ngrok token revocation still requires the owner's action.

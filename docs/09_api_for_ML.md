@@ -26,3 +26,6 @@ PYTHONPATH=src pytest -q tests/test_api.py tests/test_webinar_contract.py
 
 ## Ограничения
 Нет подтверждённого HTTP E2E с итоговым ансамблем v3. Нет API-ключей или банковского платёжного шлюза. Переобучение при каждом запросе не выполняется для загруженного артефакта.
+
+## Codespaces demo (update)
+Added `.devcontainer/devcontainer.json` with Python 3.11 and forwarded port 8000. Run `PYTHONPATH=src uvicorn antifraud.app:app --host 0.0.0.0 --port 8000` then open `/docs`. Without v3 artifact, endpoint serves synthetic toy RF; SHAP E2E requires trusted `model.cbm` and `metadata.json` in Codespace with `ANTIFRAUD_MODEL_DIR`. This setup does not require local Docker.

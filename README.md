@@ -171,3 +171,14 @@ PYTHONPATH=src python experiments/compare_four_models.py --data /path/to/transac
 - [Контрольная ведомость В14–В16](docs/WEBINARS_14_16_REVIEW.md)
 
 В14 не требует реализации агента. В15 содержит код, тесты и **восстановленные**, а не дословно экспортированные промпты. В16 основан на лекции: отдельная практическая методичка не найдена. В13 остаётся отдельным этапом. Для будущей демонстрации выбран GitHub Codespaces без локального Docker.
+
+## Demo in GitHub Codespaces — no local Docker required
+
+1. Open **Code → Codespaces → Create codespace on main**. The devcontainer installs requirements automatically.
+2. In the Codespaces terminal, run `PYTHONPATH=src python -m pytest -q`.
+3. Start `PYTHONPATH=src uvicorn antifraud.app:app --host 0.0.0.0 --port 8000`.
+4. Open the forwarded port 8000 and visit `/docs`, `/health`, `/metrics`. Keep port **private** unless a public demo is specifically needed.
+5. **Important:** without `ANTIFRAUD_MODEL_DIR`, the API uses a toy RandomForest. To demonstrate actual v3 CatBoost + SHAP, upload the trusted v3 model artifact files `model.cbm` and `metadata.json` into a private Codespace folder, set `ANTIFRAUD_MODEL_DIR` to that folder and restart. Never commit secrets or real banking data. CatBoost is a prototype, not the final model selected on validation.
+6. For optional Groq LLM explanations: add `GROQ_API_KEY` as a Codespaces secret (not a file), set `ANTIFRAUD_LLM_ENABLED=true`, `ANTIFRAUD_LLM_PROVIDER=groq`, `GROQ_MODEL=openai/gpt-oss-120b`. No LLM key means safe deterministic SHAP explanation. Alternative `openrouter` and legacy `grok` providers remain supported.
+
+**Remaining external verification:** real API call using your Codespaces key and uploaded v3 artifact; external Groq access and account limits cannot be verified without your account.

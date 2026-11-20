@@ -35,3 +35,6 @@ mlflow ui --backend-store-uri file:./mlruns
 
 ## Вывод
 Трекинг делает сравнение воспроизводимым; выбирать модель по test нельзя. По диагностике v3 есть кандидат Blend, но до окончательного выбора нужно завершить логирование и учесть эксплуатационные требования.
+
+## Next execution environment
+Use Codespaces Python environment (no local Docker), install `mlflow` and `joblib`, then run the existing `experiments/webinar05_mlflow_v3.py` **with the accepted v3 CSV**. The present sandbox still cannot install MLflow from PyPI; no run IDs are claimed.

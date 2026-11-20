@@ -33,3 +33,6 @@ python experiments/webinar06_validate_legacy.py --data '/path/to/antifraud_trans
 
 ## Решение и вывод
 Первый датасет сохраняется **без исправлений** как документированный пример ошибок генерации. Его не используем для обучения итоговой модели. На вебинаре 6 показываем, что ручной pandas-анализ нашёл проблемы, которые базовые проверки схемы пропустили. Для официальной сдачи остаётся выполнить Great Expectations и предоставить ссылку на Colab и результаты.
+
+## Next execution environment
+Run the existing `experiments/webinar06_validate_legacy.py --ge` in Codespaces with Great Expectations installed, **only on the original 5,000-row flawed CSV**. Never use v3 for webinar 6. Current sandbox could not install Great Expectations; no GE success is claimed.

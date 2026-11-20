@@ -15,3 +15,11 @@ mlartifacts/
 data/
 four_model_comparison.json
 data_quality_and_drift.json
+
+# Secrets, model binaries and local experiment stores
+.env
+.env.*
+!.env.example
+mlruns/
+*.cbm
+*.joblib
