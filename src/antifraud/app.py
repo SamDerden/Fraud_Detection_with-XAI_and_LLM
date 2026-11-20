@@ -17,6 +17,8 @@ from sklearn.ensemble import RandomForestClassifier
 
 from antifraud.observability import install_observability
 from antifraud.model_artifact import predict_from_artifact, load_artifact
+from antifraud.explain import explain_prediction
+from antifraud.llm import explain_with_optional_grok
 
 FEATURE_NAMES = (
     "amount_log", "hour", "day_of_week", "tx_count_24h", "tx_count_7d",
@@ -63,6 +65,8 @@ class ScoreResponse(BaseModel):
     model_version: str
     transaction_id: str
     demo_only: bool = True
+    explanation_method: str | None = None
+    top_factors: list[dict] | None = None
 
 
 def build_features(req: ScoreRequest) -> np.ndarray:
@@ -171,14 +175,17 @@ def score_transaction(req: ScoreRequest) -> ScoreResponse:
             "country": req.country,
         }
         score, meta = predict_from_artifact(artifact, values)
+        shap = explain_prediction(artifact, values)
+        explanation, explanation_method = explain_with_optional_grok(shap["top_factors"])
         # A score from synthetic labels is NOT a calibrated fraud probability.
         # Never automatically block based on this educational model.
         decision = "review" if score >= meta["review_threshold"] else "approve"
         return ScoreResponse(
             risk_score=round(score, 4), decision=decision,
-            explanation="Educational model score; explanation is not SHAP or LLM-generated",
+            explanation=explanation,
             model_version=meta["model_version"], transaction_id=req.transaction_id,
-            demo_only=False,
+            demo_only=False, explanation_method=explanation_method,
+            top_factors=shap["top_factors"],
         )
     score = float(get_model().predict_proba(build_features(req))[0, 1])
     decision = decision_for(score)
