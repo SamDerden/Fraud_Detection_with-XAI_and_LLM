@@ -1,206 +1,213 @@
-## Веб-интерфейс демонстрации
+# Antifraud AI — обнаружение подозрительных банковских транзакций с XAI и LLM
 
-После запуска Codespaces открывайте **корень порта 8000 (`/`)**: адаптивная тёмная панель с формой транзакции, тремя примерами, оценкой CatBoost v3, SHAP-факторами, текстом объяснения и разделами модели/метрик/Swagger. Данные отправляются через `POST /v1/score`, результаты не подставляются заранее. Если модель недоступна, интерфейс показывает ошибку, а не фиктивный скоринг. Оценка не калибрована, автоматической блокировки нет. GroqCloud отмечается как использованный только при `explanation_method=groq_grounded_selection`.
+**Учебный командный ML/MLOps-проект · вебинары 1–16 · Python · CatBoost · SHAP · FastAPI · GroqCloud**
 
-## Автоматический Codespaces — после однократного добавления модели в GitHub
+В рамках проекта нами разработан прототип интеллектуальной системы анализа банковских транзакций. Сервис принимает параметры операции, рассчитывает оценку риска с помощью обученной модели машинного обучения, показывает влияющие на результат факторы и формирует объяснение для аналитика. Для демонстрации создан веб-интерфейс с интерактивной формой, примерами операций, визуализацией SHAP и доступом к техническому API.
 
-В корне GitHub-репозитория должен находиться **catboost-v3-artifact.zip** (проверенный учебный CatBoost v3, около 140 КБ). Это **одноразовая публикация артефакта в репозиторий**, а не загрузка в каждый Codespace. Данные синтетические; приватные банковские данные и API-ключи в GitHub не добавлять.
+> **Область применения:** образовательная демонстрация полного цикла разработки ML-сервиса. Обучающие данные синтетические, оценка риска не откалибрована как банковская вероятность мошенничества; система не подключена к реальным платёжным операциям и не блокирует их автоматически.
 
-После появления архива в `main` новый Codespace автоматически установит зависимости и при запуске среды запустит `scripts/start_codespaces.py` на порту 8000. Открывайте PORTS → 8000 → /docs. Если архива нет, система явно сообщает об этом и **не запускает** подменную RandomForest. Код автоматически проверяет метаданные CatBoost и при наличии `GROQ_API_KEY` включает GroqCloud. Секрет должен быть настроен в Codespaces Secrets для соответствующего репозитория.
+## 1. Цель, задача и результат
 
-Для уже созданного Codespace: `git pull origin main`, затем `bash scripts/autostart_codespaces.sh`. В случае ошибок — `cat /tmp/antifraud-codespaces.log`.
+**Проблема.** Большой поток операций затрудняет своевременное выявление подозрительной активности. Помимо оценки риска, специалисту необходимо понимать, какие признаки повлияли на вывод алгоритма.
 
-## Основной запуск демонстрации в GitHub Codespaces (CatBoost v3, без заглушки)
+**Цель проекта** — спроектировать и реализовать объяснимый ML-сервис, способный оценивать транзакции и помогать оператору принимать решение о необходимости дополнительной проверки.
 
-1. В Codespaces остановите предыдущий uvicorn (Ctrl+C).
-2. Загрузите архив `catboost-v3-artifact.zip` в корень проекта через Explorer → Upload Files. Архив содержит `model.cbm` и `metadata.json` из проверенного локального обучения v3; он не публикуется в GitHub.
-3. Запустите `python scripts/start_codespaces.py`. Скрипт проверит версию, распакует модель, запретит синтетический fallback и откроет FastAPI на порту 8000.
-4. В PORTS откройте `/docs`, затем `GET /v1/model-info`: ожидается `catboost-educational-v3`, 13 признаков. Проверьте `POST /v1/score` и `GET /metrics`.
-5. Чтобы включить GroqCloud, сохраните `GROQ_API_KEY` в Codespaces Secrets и **перезапустите Codespace** для подхвата секрета; стартовый скрипт сам установит настройки провайдера. При ошибке внешнего API останется безопасное SHAP-объяснение.
+**Результаты разработки:**
 
-Без архива скрипт **останавливается с понятной ошибкой**, не подменяет v3 учебной RandomForest. Внешний LLM-вызов необходимо подтвердить отдельно по полю `explanation_method=groq_grounded_selection`; шаблонный fallback не является подтверждением Groq. Модель v3 обучена на синтетических учебных транзакциях и не пригодна для реальных банковских решений.
+- Подготовлен и исследован учебный датасет v3; выполнены проверки качества и анализ ограничений.
+- Проведено сравнение RandomForest, CatBoost, LightGBM и ансамбля CatBoost + LightGBM.
+- Обучена и сохранена модель **CatBoost v3** для демонстрационного API; артефакт модели включён в репозиторий.
+- Реализован скоринг через **FastAPI**, включая валидацию входных признаков и структурированный ответ.
+- Интегрированы **CatBoost SHAP** и русскоязычное объяснение значимых факторов.
+- Добавлен опциональный **LLM-слой** с поддержкой GroqCloud, Grok и OpenRouter и безопасным локальным резервным объяснением.
+- Создан адаптивный веб-интерфейс с формой, примерами сценариев, результатом оценки, SHAP-графиками и разделом метрик.
+- Подготовлены тесты, GitHub Actions CI, Docker-конфигурация, Prometheus-метрики, JSON-логи, документация развёртывания и стратегия мониторинга.
 
-# Сервис детекции подозрительных транзакций в банке с объяснимостью (XAI) и LLM-слоем
+## 2. Архитектура решения
 
-## Описание проекта
-Мы разрабатываем интеллектуальную систему для банка, которая в реальном времени определяет мошеннические транзакции. 
+```mermaid
+flowchart LR
+    A["Веб-интерфейс / Swagger"] --> B["FastAPI: валидация запроса"]
+    B --> C["CatBoost v3: оценка риска"]
+    C --> D["SHAP: вклад признаков"]
+    D --> E["Объяснение: локальный шаблон / опциональный LLM"]
+    E --> F["Результат: оценка, решение, факторы"]
+    B --> G["JSON-логи и Prometheus"]
+```
 
-## Бизнес-цель
-Снизить финансовые потери банка от мошенничества и уменьшить время ручной проверки алертов для операционистов за счет автоматической генерации пояснений.
+| Компонент | Назначение | Реализация |
+|---|---|---|
+| Данные и исследование | Подготовка признаков, проверка качества, сравнение моделей | Python, pandas, scikit-learn, CatBoost, LightGBM |
+| ML-ядро | Скоринг операции по 13 признакам | Сохранённый CatBoost v3 |
+| Объяснимость | Выявление факторов, повышающих и снижающих оценку риска | Нативные SHAP-значения CatBoost |
+| LLM-слой | Дополнительный выбор подтверждённых SHAP-факторов для объяснения | GroqCloud / Grok / OpenRouter, опционально |
+| API | Приём транзакции, валидация, скоринг, ответы | FastAPI, Pydantic |
+| Пользовательский интерфейс | Ввод транзакции и визуализация ответа | HTML, CSS, JavaScript |
+| Контроль качества и эксплуатация | Тесты, CI, логи, метрики, контейнеризация | pytest, GitHub Actions, Prometheus, Docker |
 
-## Команда и роли
-*   **Участник 1 (Архитектор / AI Engineer):** Архитектура сервиса, API-контракты, деплой.
-*   **Участник 2 (Data Scientist / ML Engineer):** Данные, обучение CatBoost, трекинг в MLflow.
-*   **Участник 3 (QA / XAI Engineer):** Тестирование модели, интеграция с LLM, объяснимость.
-*   **Участник 4 (MLOps / Tech Lead):** Мониторинг, валидация данных, документация, CI/CD.
+**Принцип объяснимости:** LLM не определяет факт мошенничества, не меняет оценку модели и не придумывает новые причины. Источником факторов служит SHAP. При недоступности LLM используется детерминированное объяснение. Значения SHAP представлены во вкладах в *log-odds*, а не в процентных пунктах вероятности.
 
-## Технологический стек
-*   **ML-ядро:** сравнение RandomForest, CatBoost, LightGBM и ансамбля; CatBoost пока используется в прототипе API, но не утверждён победителем для v3.
-*   **XAI / LLM-слой:** SHAP и подключаемый LLM-слой; текущий адаптер Grok сохранён, провайдер может быть заменён.
-*   **Сервис:** FastAPI, Docker.
-*   **MLOps:** MLflow (трекинг экспериментов), Great Expectations (валидация данных), Evidently (мониторинг дрейфа).
-*   **Тесты:** Pytest.
+## 3. Данные и модель
 
-## Структура репозитория
+Для исследования использован синтетический датасет **v3 из 7 000 размеченных транзакций**, относящихся к 220 пользователям. В нём 321 операция с положительной меткой (4,59%). Дополнительная история из 3 776 событий использовалась для расчёта признаков и не включалась в размеченные 7 000 операций.
+
+| Выборка | Число операций | Назначение |
+|---|---:|---|
+| Train | 5 000 | Обучение |
+| Validation | 1 000 | Сравнение моделей и выбор порога |
+| Test | 1 000 | Независимая итоговая оценка |
+| **Всего** | **7 000** | Хронологическое разбиение |
+
+Модель использует 13 признаков, включая сумму, час и день операции, среднюю сумму за 30 дней, частоту операций, разнообразие мерчантов и стран, возраст устройства, признаки нового устройства и ночной операции, канал и страну. Идентификаторы, метка `is_fraud` и столбец `split` не используются как предикторы.
+
+### Результаты сравнительного эксперимента v3
+
+| Алгоритм | PR-AUC, validation | PR-AUC, test |
+|---|---:|---:|
+| RandomForest | 0.25328 | 0.22334 |
+| CatBoost | 0.24352 | 0.21451 |
+| LightGBM | 0.20174 | **0.25524** |
+| CatBoost + LightGBM (blend) | **0.25779** | 0.22161 |
+
+**Интерпретация:** ансамбль показал лучший PR-AUC на валидации, а LightGBM — на тесте. CatBoost выбран как реализованный кандидат для API и демонстрации SHAP, **не как доказанно лучший алгоритм**. Порог направления на ручную проверку выбирался на validation, а не на test.
+
+В анализе данных выявлена сильная связь признака нового устройства с синтетической меткой мошенничества; это ограничение генератора и риск переноса модели на реальные данные. Обобщение на новых клиентов и реальные банковские операции не подтверждено.
+
+Подробности: [сравнение моделей](docs/V3_BENCHMARK.md), [эксперименты](docs/05_experiments_mlflow.md), [тестирование](docs/07_model_testing.md).
+
+## 4. Пользовательский сценарий и интерфейс
+
+Веб-интерфейс позволяет описать операцию: указать сумму, канал, страну, средний чек, количество операций за 24 часа и 7 дней, число уникальных мерчантов и стран, возраст устройства и время транзакции. Признаки нового устройства и ночной операции рассчитываются автоматически.
+
+После нажатия **«Проверить транзакцию»** браузер вызывает `POST /v1/score`. На экране отображаются:
+
+1. Оценка риска модели и решение **«Одобрить» / «На ручную проверку»**.
+2. Пять наиболее значимых SHAP-факторов с направлением и величиной вклада.
+3. Текстовое объяснение и указание фактически использованного метода: локальный SHAP-шаблон либо подтверждённый ответ GroqCloud.
+4. Версия модели и сведения об учебном характере данных.
+
+В интерфейсе предусмотрены три примера — обычная, подозрительная и ночная операция. Они **заполняют форму**, но не подменяют результат заранее заданным ответом. Дополнительно доступны разделы «О модели», «Метрики и результаты», «Примеры кейсов» и «API (Swagger)».
+
+**Важное ограничение:** выводимая оценка — некалиброванный скор модели. Даже высокий риск означает рекомендацию ручной проверки, а не доказанное мошенничество и не автоматическую блокировку.
+
+## 5. Реализация практик вебинаров 1–16
+
+Ниже приведён результат работы по каждому занятию и соответствующие материалы проекта. Наличие скрипта или проектного решения отдельно от его фактического запуска отмечено явно.
+
+| Вебинар | Тема и выполненная работа | Материалы |
+|---|---|---|
+| **01** | **Жизненный цикл AI-продукта.** Определены бизнес-проблема, заинтересованные стороны, этапы ML-разработки, метрики и основные риски. | [01_lifecycle.md](docs/01_lifecycle.md) |
+| **02** | **Архитектура.** Спроектирован путь транзакции от входного интерфейса через API и ML-модель к объяснению и мониторингу; описаны компоненты и связи. | [02_architecture.md](docs/02_architecture.md) |
+| **03** | **Контракт ML-сервиса.** Определены входные поля, правила валидации, выходной формат, ошибки и ограничения API. | [03_contract.md](docs/03_contract.md) |
+| **04** | **MLOps-зрелость.** Проведена оценка процессов и подготовлена дорожная карта развития: воспроизводимость, CI/CD, мониторинг и управление моделями. | [04_mlops_profile.md](docs/04_mlops_profile.md) |
+| **05** | **MLflow и эксперименты.** Подготовлен сценарий трекинга экспериментов v3 и сравнения запусков; выполнение полного MLflow-прогона в целевой среде не подтверждено. | [05_experiments_mlflow.md](docs/05_experiments_mlflow.md), [webinar05_mlflow_v3.py](experiments/webinar05_mlflow_v3.py) |
+| **06** | **Качество данных.** Исследован отдельный исходный проблемный датасет, зафиксированы нарушения согласованности истории; реализован валидатор на pandas. Great Expectations не запускался. | [06_data_validation.md](docs/06_data_validation.md), [webinar06_validate_legacy.py](experiments/webinar06_validate_legacy.py) |
+| **07** | **Тестирование ML.** Разработаны проверки схемы, качества и особенностей v3. Локальное выполнение тестов с предоставленным CSV подтверждалось; в CI зависящие от отсутствующего CSV тесты пропускаются. | [07_model_testing.md](docs/07_model_testing.md), [test_webinar07_quality.py](tests/test_webinar07_quality.py) |
+| **08** | **Стратегия тестирования.** Подготовлены unit-, integration- и mock-тесты для компонентов сервиса и негативных сценариев. | [08_testing_strategy.md](docs/08_testing_strategy.md), [test_webinar08_components.py](tests/test_webinar08_components.py) |
+| **09** | **API для ML.** Реализован FastAPI со скорингом, сведениями о модели, healthcheck и Swagger; добавлен веб-интерфейс. Сквозная браузерная проверка последнего интерфейса ещё не подтверждена. | [09_api_for_ML.md](docs/09_api_for_ML.md), [app.py](src/antifraud/app.py) |
+| **10** | **Стратегия развёртывания.** Спроектированы варианты выпуска, shadow/canary, контроль метрик и rollback. Промышленное canary-развёртывание не проводилось. | [10_deploy_strategy.md](docs/10_deploy_strategy.md) |
+| **11** | **Контейнеризация и деплой.** Подготовлены Dockerfile, Docker Compose и конфигурация GitHub Codespaces с автозапуском учебной модели. | [11, 12_deploy_and_support.md](docs/11%2C%2012_deploy_and_support.md), [Dockerfile](Dockerfile), [devcontainer.json](.devcontainer/devcontainer.json) |
+| **12** | **Наблюдаемость.** Реализованы структурированные JSON-логи и endpoint `/metrics` для Prometheus; определены эксплуатационные метрики и сигналы. Полноценная внешняя система алертинга не развёрнута. | [11, 12_deploy_and_support.md](docs/11%2C%2012_deploy_and_support.md), [observability.py](src/antifraud/observability.py) |
+| **13** | **Data drift.** Выполнены расчёты KS/PSI на train и validation v3, выявлен выраженный сдвиг `device_age_days`; описаны пороги, реакция и стратегия переобучения. Онлайн-мониторинг дрейфа не запущен. | [13_drift_strategy.md](docs/13_drift_strategy.md), [webinar13_drift_v3.py](experiments/webinar13_drift_v3.py) |
+| **14** | **Проектирование AI-агента.** Описан ассистент аналитика антифрода: цель, четыре инструмента, источники, метрики, риски и схема ReAct с двумя итерациями. По заданию разработан проект агента, не исполняемый агент. | [14_AI_agent.md](docs/14_AI_agent.md) |
+| **15** | **Промпт-инжиниринг.** Разобран процесс уточнения задачи с AI-ассистентом, реализован поиск пар чисел и pytest-тесты; формулировки промптов восстановлены, не представлены как дословный журнал переписки. | [15_prompt_engineering.md](docs/15_prompt_engineering.md), [webinar15_pairs.py](experiments/webinar15_pairs.py) |
+| **16** | **Ответственный AI и code review.** Проведён аудит безопасности, обработки PII, секретов, галлюцинаций LLM, смещений и ограничений эксплуатации; сформулированы критерии приёмки. Отзыв ранее раскрытого ngrok-токена владельцем ещё не подтверждён. | [16_vibe_coding.md](docs/16_vibe_coding.md) |
+
+Общий реестр выполнения: [PRACTICE_COVERAGE.md](docs/PRACTICE_COVERAGE.md). Итоговый аудит: [FINAL_AUDIT_01_16.md](docs/FINAL_AUDIT_01_16.md). Формальная сдача отдельных материалов преподавателю в сторонних системах не подтверждена и не приравнивается к наличию файлов в репозитории.
+
+## 6. Проверки, безопасность и ограничения
+
+**Реализованные меры:** проверка Pydantic-схемы и согласованности вычисленных признаков, ограничение внешних LLM-провайдеров известными адресами, передача только обезличенных SHAP-факторов, отказ от автоматической блокировки, детерминированный fallback объяснения, тесты, CI, логи и метрики.
+
+**Ограничения текущего прототипа:**
+
+- Синтетические данные не подтверждают качество на реальном банковском потоке; вероятность модели не калибрована.
+- Полный E2E последнего веб-интерфейса, включая живой ответ GroqCloud, требует отдельной проверки в запущенном Codespaces.
+- MLflow v3, Great Expectations, внешние алерты и промышленное развёртывание не заявляются как завершённые.
+- Модель CatBoost используется в API как технический кандидат; окончательный выбор champion-модели требует дополнительного обоснования.
+- Ранее раскрытый ngrok-токен должен быть отозван владельцем; наличие обновлённого кода не устраняет секрет из истории Git.
+
+## 7. Структура репозитория
+
 ```text
-├── README.md                        # Этот файл
-├── docs/                            # Отчеты по лекциям и итоговая документация
-│   ├── 01_lifecycle.md              # Жизненный цикл ИИ-системы
-│   ├── 02_architecture.md           # Архитектура сервиса
-│   ├── 03_contract.md               # Контракт ML-сервиса
-│   ├── 04_mlops_profile.md          # MLOps-профиль компании
-│   ├── 05_experiments_mlflow.md     # MLOps эксперименты
-│   ├── 06_data_validation.md        # Валидация данных
-│   ├── 07_model_testing.md          # Валидация данных
-│   ├── 08_testing_strategy.md       # Стратегия тестирования
-│   ├── 09_api_for_ML.md             # Проектирование API для ML
-│   ├── 10_deploy_strategy.md        # Стратегия деплоя
-│   ├── 11, 12_deploy_and_support.md # Деплой и поддержка
-│   ├── 13_drift_strategy.md         # Стратегия обнаружения дрейфа
-│   ├── 14_AI_agent.md               # Проектирование ИИ агента
-│   ├── 15_prompt_engineering.md     # Использование ИИ-ассистентов и промпт-инжиниринг
-│   ├── 16_vibe_coding.md            # Ответственный ИИ, мониторинг и ограничения
-
-
-## Реальный статус реализации (20.11.2026)
-Это **учебный прототип**, не готовый банковский антифрод. В репозитории есть FastAPI, синтетический fallback, код для сохранённой CatBoost-модели, тесты, Docker Compose, Prometheus и эксперименты. SHAP интегрирован в API для сохранённой CatBoost; Grok подключается опционально через API-ключ, но живой вызов пока не подтверждён. Порог модели выбран по валидации, вероятность не откалибрована. Никакой реальной блокировки платежей нет.
-
-### Локальные эксперименты
-```bash
-python -m pip install -r experiments/requirements.txt
-PYTHONPATH=src python experiments/validate_and_drift.py --data /path/to/antifraud_transactions_dataset.csv
-PYTHONPATH=src python experiments/compare_four_models.py --data /path/to/antifraud_transactions_dataset.csv --mlflow-uri file:./mlruns
-PYTHONPATH=src python experiments/train_deployable.py --data /path/to/antifraud_transactions_dataset.csv --out artifacts/catboost-educational-v1 --mlflow-uri file:./mlruns
+Fraud_Detection_with-XAI_and_LLM/
+├── .devcontainer/                  # Настройки Codespaces
+├── catboost-v3-artifact.zip        # Обученная учебная модель v3
+├── src/antifraud/
+│   ├── app.py                      # FastAPI и маршруты
+│   ├── dashboard.html              # Веб-интерфейс
+│   ├── model_artifact.py           # Загрузка и проверка CatBoost
+│   ├── explain.py                  # SHAP-объяснение
+│   ├── llm.py                      # Опциональный LLM-слой
+│   └── observability.py            # Логи и метрики
+├── experiments/                    # Обучение, сравнение, аудит, практики
+├── tests/                          # Автоматические проверки
+├── scripts/
+│   ├── start_codespaces.py         # Подготовка модели и запуск API
+│   └── autostart_codespaces.sh     # Автозапуск среды
+├── docs/                           # Практики вебинаров 1–16 и аудит
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
 ```
 
-**Данные не коммитить:** CSV должен быть учебным/синтетическим и разрешённым к использованию. `mlruns/` и `artifacts/` исключены через `.gitignore`.
+Полный исходный датасет v3 не включён в репозиторий; в нём опубликован только обученный учебный артефакт модели и необходимый код. Секреты и реальные банковские данные в Git не добавляются.
 
-### API с сохранённой моделью
-```bash
-python -m pip install -r requirements.txt
-ANTIFRAUD_MODEL_DIR=artifacts/catboost-educational-v1 PYTHONPATH=src uvicorn antifraud.app:app --host 127.0.0.1 --port 8000
-```
-Swagger: http://127.0.0.1:8000/docs. Запрос — см. `docs/03_contract.md`. Для Docker:
-```bash
-ANTIFRAUD_MODEL_DIR=/models/catboost-educational-v1 docker compose up --build
-```
-Compose монтирует локальную папку `./artifacts` внутрь `/models`. Без переменной API использует демонстрационную модель, обучаемую при первом запросе. Для безопасной демонстрации это допустимо; для реальной эксплуатации — нет.
+---
 
-### Проверки
-```bash
-PYTHONPATH=src pytest -q
-docker compose config -q
-```
-GitHub Actions также проверяет Docker build. Наличие кода не заменяет успешный CI и ручной smoke-тест. **Ранее опубликованный ngrok-токен необходимо отозвать у провайдера; изменение ноутбука не очищает Git-историю.**
+## 8. Запуск и демонстрация
 
+### GitHub Codespaces — основной способ показа
 
-## SHAP + optional Grok (educational API)
+1. Открыть репозиторий в GitHub и выбрать **Code → Codespaces → Create codespace on main**.
+2. Дождаться установки зависимостей и автоматического запуска приложения. Настройки среды находятся в `.devcontainer/devcontainer.json`.
+3. Открыть вкладку **Ports**, порт **8000**, затем **Open in Browser**.
+4. По корневому адресу `/` откроется **веб-интерфейс Antifraud AI**. Для технической проверки доступен Swagger по `/docs`.
+5. Выбрать один из трёх примеров или ввести собственные параметры, нажать **«Проверить транзакцию»** и изучить оценку CatBoost, SHAP и текст объяснения.
 
-When `ANTIFRAUD_MODEL_DIR` points to a trained CatBoost artifact, `POST /v1/score` returns:
-- `risk_score` — uncalibrated model score;
-- `decision` — `approve` or `review`, **never automatic block**;
-- `top_factors` — top 5 CatBoost native SHAP contributions with direction and log-odds contribution;
-- `explanation` — Russian explanation of the verified factors;
-- `explanation_method` — `shap_template`, `grok_grounded_selection`, or a fallback code.
+Архив `catboost-v3-artifact.zip` уже находится в корне `main`. При запуске `scripts/start_codespaces.py` модель распаковывается в локальную папку среды, проверяется и загружается автоматически. **Каждому участнику не требуется отдельно скачивать или загружать модель.** Если артефакт недоступен, демонстрационный запуск прекращается, не подменяя CatBoost синтетической RandomForest.
 
-**SHAP values are log-odds contributions, not probability percentage points.** The code checks that SHAP contributions plus base value reconstruct the raw CatBoost prediction.
-
-Grok is **optional and disabled by default**. It can select/order the supplied SHAP factor names, but cannot introduce new factors into the final text. The final text is deterministically rendered from verified SHAP data. Only feature names, directions and SHAP values are sent externally, never transaction/user identifiers or raw payment details. Missing credentials, model name, API errors, invalid JSON and unapproved factors fall back to the local template.
-
-To enable a live Grok request, set `ANTIFRAUD_LLM_ENABLED=true`, `XAI_API_KEY` in a secret manager, and `GROK_MODEL` to an available model identifier. No credentials are stored in this repository. **Live Grok access is not proven by mock tests.**
-
-### Dataset integrity and thresholds
-```bash
-PYTHONPATH=src python experiments/audit_features_thresholds.py \
-  --data /path/to/antifraud_transactions_dataset.csv \
-  --model artifacts/catboost-educational-v1/model.cbm
-```
-The report compares validation-selected review thresholds at 1%, 2%, 3%, 5%, 10%, 15%, 20% validation FPR caps, reports test performance, overlapping users and 7-day/24-hour count inconsistencies. **Do not optimize thresholds on the test set.** Historical feature provenance and true concept drift remain unverified.
-
-
-### Демонстрация API + SHAP без Grok-ключа
-```bash
-PYTHONPATH=src python experiments/demo_smoke.py \
-  --data /path/to/antifraud_transactions_dataset.csv \
-  --artifact artifacts/catboost-educational-v1 --rows 3
-```
-The script sends three educational examples through FastAPI TestClient and prints score, review/approve decision, SHAP factor names, and grounded Russian explanation. It does not print original transaction/user IDs. It deliberately disables external LLM calls.
-
-
-## Новый основной учебный датасет: v3 (7 000 транзакций)
-
-**Решение проекта:** сохраняем синтетический v3, не смешиваем его с v1/v2 и не исправляем задним числом по результатам теста. История warm-up (3 776 событий) используется только для расчёта признаков, не входит в 7 000 размеченных операций. Данные v3: 220 пользователей, 321 положительная метка (4,59%). Явные хронологические выборки: **train 5 000 / validation 1 000 / test 1 000**. Данные хранятся вне GitHub до согласованной публикации, генератор и контроль качества должны быть сохранены вместе с ними для воспроизводимости.
-
-**Аудит:** обнаружена сильная связь нового устройства с меткой фрода (41,30% среди новых устройств против 3,34% среди привычных). Это свойство симулятора, а не доказательство утечки или повод автоматически менять данные. Диагностическое исключение `is_new_device` и `device_age_days` снижало PR-AUC на тесте у всех четырёх вариантов; эти результаты сохраняем как анализ чувствительности, а не основание для выбора победителя. Обобщение на полностью новых клиентов ещё не проверено. Данные синтетические и не валидированы на реальном банковском потоке.
-
-**Этапы:** (1) аудит данных — проведён; (2) воспроизводимое сравнение четырёх моделей на v3 — следующий этап; (3) выбор порога по validation и независимая оценка test; (4) SHAP; (5) LLM и API; (6) эксплуатационные проверки. Существующий CatBoost API обучен на старой версии данных и **не является финальной моделью v3**.
-
-Запуск сравнительного эксперимента после размещения v3 локально:
+Для ранее созданного Codespaces после обновления `main`:
 
 ```bash
-python -m pip install -r experiments/requirements.txt
-PYTHONPATH=src python experiments/compare_four_models.py --data /path/to/transactions_v3.csv --output v3_four_models.json --mlflow-uri file:./mlruns
+git pull origin main
+bash scripts/autostart_codespaces.sh
 ```
 
-Скрипт учитывает явный столбец `split` и не заменяет разбиение v3 на 60/20/20. Столбцы `is_fraud`, `split` и идентификаторы не входят в признаки модели. Test нельзя использовать для настройки гиперпараметров или порога. Подробности: [этап экспериментов](docs/05_experiments_mlflow.md) и [тестирование](docs/07_model_testing.md).
+При необходимости запуск вручную:
 
+```bash
+python scripts/start_codespaces.py
+```
 
-## Единый реестр практик (вебинары 1–16)
-[Покрытие заданий, артефакты и честный статус проверки](docs/PRACTICE_COVERAGE.md). Этот документ фиксирует, что уже есть в репозитории, и что ещё нельзя считать подтверждённым. Скрипты `experiments/compare_four_models.py` и `experiments/train_deployable.py` учитывают явное разбиение v3 на 5 000/1 000/1 000.
+Проверка API:
 
+```text
+/                  Веб-интерфейс
+/docs              Swagger UI
+/health            Состояние сервиса
+/v1/model-info     Версия модели и признаки
+/v1/score          POST: скоринг + SHAP + объяснение
+/metrics           Метрики Prometheus
+```
 
-### Первый подтверждённый локальный benchmark v3
-Результаты четырёх кандидатов и ограничения: [docs/V3_BENCHMARK.md](docs/V3_BENCHMARK.md). MLflow и CI для этого запуска пока не подтверждены.
+Ожидаемая версия в `/v1/model-info`: **`catboost-educational-v3`**, число признаков — **13**.
 
+### Опциональная интеграция GroqCloud
 
-### Артефакт v3 и учебные маршруты вебинара 9
-Локально экспортирована CatBoost-модель `catboost-educational-v3` с метаданными и проверкой SHAP. Архив передаётся отдельно от GitHub; проект не переключает API на v3 автоматически. Для использования распакуйте архив в `artifacts/catboost-v3` и установите `ANTIFRAUD_MODEL_DIR` на этот каталог. Добавлены совместимые учебные маршруты `POST /predict`, `GET /healthcheck`, `GET /model-info`; основными остаются `/v1/score`, `/health`, `/v1/model-info`. См. [отчёт](docs/V3_BENCHMARK.md). Проверки последнего коммита отслеживаются в GitHub Actions; live LLM и MLflow пока не подтверждены.
+Для внешнего LLM-объяснения необходимо сохранить `GROQ_API_KEY` в **GitHub Codespaces Secrets** с доступом к данному репозиторию и перезапустить среду. Стартовый скрипт автоматически задаёт провайдер `groq` и модель `openai/gpt-oss-120b`, если ключ доступен. Ключи не должны находиться в коде или README.
 
+Факт успешного ответа GroqCloud определяется по полю `explanation_method=groq_grounded_selection`. Значение `shap_template` или `shap_template_fallback` означает, что использовано локальное объяснение, а не успешный внешний вызов.
 
-## Практика вебинаров 1–4: актуализирована
-- [В01 — жизненный цикл](docs/01_lifecycle.md)
-- [В02 — архитектура (Mermaid, 7 блоков)](docs/02_architecture.md)
-- [В03 — текстовый контракт API](docs/03_contract.md)
-- [В04 — MLOps-профиль и roadmap](docs/04_mlops_profile.md)
-- [Контрольная ведомость В01–В04](docs/WEBINARS_01_04_REVIEW.md)
+### Тестирование
 
-Документы отражают текущее состояние проекта: CatBoost остаётся техническим прототипом, финальная модель не утверждена; production, canary и MLflow v3 не объявляются выполненными. Официальная сдача в Holst/Google Docs требует отдельного подтверждения.
+```bash
+PYTHONPATH=src python -m pytest -q
+```
 
+Результаты автоматических проверок публикуются в [GitHub Actions](https://github.com/SamDerden/Fraud_Detection_with-XAI_and_LLM/actions). Успешный CI не заменяет проверку пользовательского сценария в браузере.
 
-## Практика вебинаров 5–8 (20.11.2026)
-- [В05 — MLflow на v3](docs/05_experiments_mlflow.md) и [скрипт трёх запусков](experiments/webinar05_mlflow_v3.py)
-- [В06 — проверка **старого исходного датасета**](docs/06_data_validation.md) и [валидатор](experiments/webinar06_validate_legacy.py)
-- [В07 — модельные тесты v3](docs/07_model_testing.md) и [pytest](tests/test_webinar07_quality.py)
-- [В08 — unit/integration mock](docs/08_testing_strategy.md) и [pytest](tests/test_webinar08_components.py)
-- [Контрольная ведомость В05–В08](docs/WEBINARS_05_08_REVIEW.md)
+---
 
-**Разделение данных:** В06 использует только исходный проблемный CSV 5 000 строк, сохраняемый без исправлений. В05 и В07 используют принятый v3 7 000 строк; В08 — mock. Локально тесты В07+В08: **17 passed** при предоставленном v3. MLflow/Great Expectations в текущей среде недоступны; их успешный запуск **не заявляется**. Не путать с официальной сдачей в Colab.
-
-
-## Практика вебинаров 9–12 (20.11.2026)
-- [В09 FastAPI](docs/09_api_for_ML.md)
-- [В10 стратегия деплоя](docs/10_deploy_strategy.md)
-- [В11 Docker и В12 мониторинг](docs/11%2C%2012_deploy_and_support.md)
-- [Контрольная ведомость В09–В12](docs/WEBINARS_09_12_REVIEW.md)
-
-Исправлена ошибка CI: mock-тест API теперь передаёт согласованные исторические счётчики; проверка в API сохранена. В12 middleware выдаёт JSON-логи, а `/metrics` — Prometheus text format. Фактический Docker build и окончательный E2E не объявляются подтверждёнными до успешного CI.
-
-
-## Практика вебинаров 14–16
-- [В14 — проект ИИ-агента](docs/14_AI_agent.md)
-- [В15 — ИИ-ассистент и проверенный код](docs/15_prompt_engineering.md)
-- [В16 — безопасность и AI code review](docs/16_vibe_coding.md)
-- [Контрольная ведомость В14–В16](docs/WEBINARS_14_16_REVIEW.md)
-
-В14 не требует реализации агента. В15 содержит код, тесты и **восстановленные**, а не дословно экспортированные промпты. В16 основан на лекции: отдельная практическая методичка не найдена. В13 остаётся отдельным этапом. Для будущей демонстрации выбран GitHub Codespaces без локального Docker.
-
-## Demo in GitHub Codespaces — no local Docker required
-
-1. Open **Code → Codespaces → Create codespace on main**. The devcontainer installs requirements automatically.
-2. In the Codespaces terminal, run `PYTHONPATH=src python -m pytest -q`.
-3. Start `PYTHONPATH=src uvicorn antifraud.app:app --host 0.0.0.0 --port 8000`.
-4. Open the forwarded port 8000 and visit `/docs`, `/health`, `/metrics`. Keep port **private** unless a public demo is specifically needed.
-5. **Important:** without `ANTIFRAUD_MODEL_DIR`, the API uses a toy RandomForest. To demonstrate actual v3 CatBoost + SHAP, upload the trusted v3 model artifact files `model.cbm` and `metadata.json` into a private Codespace folder, set `ANTIFRAUD_MODEL_DIR` to that folder and restart. Never commit secrets or real banking data. CatBoost is a prototype, not the final model selected on validation.
-6. For optional Groq LLM explanations: add `GROQ_API_KEY` as a Codespaces secret (not a file), set `ANTIFRAUD_LLM_ENABLED=true`, `ANTIFRAUD_LLM_PROVIDER=groq`, `GROQ_MODEL=openai/gpt-oss-120b`. No LLM key means safe deterministic SHAP explanation. Alternative `openrouter` and legacy `grok` providers remain supported.
-
-**Remaining external verification:** real API call using your Codespaces key and uploaded v3 artifact; external Groq access and account limits cannot be verified without your account.
+**Итог:** разработан и документирован образовательный прототип антифрод-системы, объединяющий ML-скоринг, объяснимость, API, веб-интерфейс и элементы MLOps. Результат демонстрирует архитектуру и инженерные подходы к созданию объяснимых ML-сервисов, сохраняя прозрачность ограничений и статуса фактической проверки.
