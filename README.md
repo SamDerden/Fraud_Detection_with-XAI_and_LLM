@@ -70,3 +70,27 @@ PYTHONPATH=src pytest -q
 docker compose config -q
 ```
 GitHub Actions также проверяет Docker build. Наличие кода не заменяет успешный CI и ручной smoke-тест. **Ранее опубликованный ngrok-токен необходимо отозвать у провайдера; изменение ноутбука не очищает Git-историю.**
+
+
+## SHAP + optional Grok (educational API)
+
+When `ANTIFRAUD_MODEL_DIR` points to a trained CatBoost artifact, `POST /v1/score` returns:
+- `risk_score` — uncalibrated model score;
+- `decision` — `approve` or `review`, **never automatic block**;
+- `top_factors` — top 5 CatBoost native SHAP contributions with direction and log-odds contribution;
+- `explanation` — Russian explanation of the verified factors;
+- `explanation_method` — `shap_template`, `grok_grounded_selection`, or a fallback code.
+
+**SHAP values are log-odds contributions, not probability percentage points.** The code checks that SHAP contributions plus base value reconstruct the raw CatBoost prediction.
+
+Grok is **optional and disabled by default**. It can select/order the supplied SHAP factor names, but cannot introduce new factors into the final text. The final text is deterministically rendered from verified SHAP data. Only feature names, directions and SHAP values are sent externally, never transaction/user identifiers or raw payment details. Missing credentials, model name, API errors, invalid JSON and unapproved factors fall back to the local template.
+
+To enable a live Grok request, set `ANTIFRAUD_LLM_ENABLED=true`, `XAI_API_KEY` in a secret manager, and `GROK_MODEL` to an available model identifier. No credentials are stored in this repository. **Live Grok access is not proven by mock tests.**
+
+### Dataset integrity and thresholds
+```bash
+PYTHONPATH=src python experiments/audit_features_thresholds.py \
+  --data /path/to/antifraud_transactions_dataset.csv \
+  --model artifacts/catboost-educational-v1/model.cbm
+```
+The report compares validation-selected review thresholds at 1%, 2%, 3%, 5%, 10%, 15%, 20% validation FPR caps, reports test performance, overlapping users and 7-day/24-hour count inconsistencies. **Do not optimize thresholds on the test set.** Historical feature provenance and true concept drift remain unverified.
