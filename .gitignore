@@ -1,0 +1,17 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+.env
+.env.*
+!.env.example
+artifacts/
+mlruns/
+mlartifacts/
+*.joblib
+*.cbm
+*.csv
+!tests/fixtures/*.csv
+data/
+four_model_comparison.json
+data_quality_and_drift.json
