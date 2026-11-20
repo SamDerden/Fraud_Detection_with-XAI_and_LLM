@@ -40,7 +40,7 @@ def load_extratrees(directory: str):
         raise ValueError("ExtraTrees v4 scaler dimension mismatch")
     if bundle["model"].n_features_in_ != len(columns):
         raise ValueError("ExtraTrees v4 model dimension mismatch")
-    return bundle, meta
+    return bundle, {**meta, 'review_threshold': REVIEW_THRESHOLD}
 
 
 def transform(features: dict, columns: list[str]):
