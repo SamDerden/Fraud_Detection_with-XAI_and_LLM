@@ -44,3 +44,8 @@ curl -X POST http://127.0.0.1:8000/v1/score \
 Secure the exposed credential, identify an approved labeled dataset and its
 schema, train/evaluate a single model with consistent preprocessing, persist
 the model artifact, and only then add calibrated scores and explainability.
+
+
+## Актуальная модель проекта (для защиты)
+
+Выбрана **ExtraTrees v4**: 200 деревьев, глубина 4, минимум 6 объектов в листе; 13 исходных + 7 engineered признаков. Validation PR-AUC **0,342852**, ROC-AUC **0,803479** на синтетическом v3. Выбор по максимальному validation PR-AUC в [32-конфигурационном скрининге](docs/WEBINAR05_32_EXPERIMENTS.md); дополнительный поиск (30+30 trials, 50–100 деревьев) не охватывал выбранные 200 деревьев. [ZIP модели](extratrees-v4-artifact.zip) в `main`. **Загрузка v4 в FastAPI и XAI пока не реализованы/не подтверждены**. Legacy CatBoost/Blend в старых разделах — история экспериментов, не финальный выбор.
