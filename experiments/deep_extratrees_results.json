@@ -1,0 +1,42 @@
+[
+  {
+    "features": "base",
+    "trials": 30,
+    "inner_cv_pr_auc": 0.2604584357352279,
+    "fold_scores": [
+      0.2530013208232643,
+      0.284854764959456,
+      0.24351922142296345
+    ],
+    "validation_pr_auc": 0.2874601142090307,
+    "best_params": {
+      "n_estimators": 100,
+      "max_depth": 12,
+      "min_samples_leaf": 12,
+      "min_samples_split": 12,
+      "max_features": 0.8418967198335643,
+      "bootstrap": true,
+      "class_weight": null
+    }
+  },
+  {
+    "features": "engineered",
+    "trials": 30,
+    "inner_cv_pr_auc": 0.25538080238323607,
+    "fold_scores": [
+      0.26042453436116275,
+      0.2802764719103916,
+      0.22544140087815379
+    ],
+    "validation_pr_auc": 0.3124623414030257,
+    "best_params": {
+      "n_estimators": 50,
+      "max_depth": 4,
+      "min_samples_leaf": 30,
+      "min_samples_split": 9,
+      "max_features": 0.7708640670108498,
+      "bootstrap": false,
+      "class_weight": null
+    }
+  }
+]
