@@ -95,6 +95,8 @@ def test_artifact_review_only(monkeypatch):
     monkeypatch.setenv("ANTIFRAUD_MODEL_DIR", "/fake/model")
     monkeypatch.setattr("antifraud.app.predict_from_artifact",
                         lambda directory, features: (0.95, {"review_threshold": 0.5, "model_version": "test"}))
+    monkeypatch.setattr("antifraud.app.explain_prediction",
+                        lambda directory, features: {"top_factors": [{"feature": "amount", "value": 12000, "shap_log_odds": 0.5, "direction": "increases_risk"}]})
     payload = {**VALID, "avg_amount_30d": 1000, "is_new_device": 1, "is_night_tx": 1}
     response = client.post("/v1/score", json=payload)
     assert response.status_code == 200, response.text
