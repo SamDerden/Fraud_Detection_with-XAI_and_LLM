@@ -51,7 +51,23 @@ def main():
     df["timestamp"] = pd.to_datetime(df.timestamp, utc=True)
     df = df.sort_values(["timestamp", "transaction_id"]).reset_index(drop=True)
     n = len(df)
-    train, val, test = np.split(np.arange(n), [int(n * .6), int(n * .8)])
+    if "split" in df.columns:
+        labels = df["split"].astype(str).to_numpy()
+        if set(labels) != {"train", "validation", "test"}:
+            raise ValueError("Expected train/validation/test split labels")
+        train, val, test = (np.flatnonzero(labels == name)
+                            for name in ("train", "validation", "test"))
+        if not (train.max() < val.min() and val.max() < test.min()):
+            raise ValueError("Splits must be chronologically ordered")
+        split_description = "explicit chronological split"
+    else:
+        train, val, test = np.split(np.arange(n), [int(n * .6), int(n * .8)])
+        split_description = "chronological 60/20/20"
+    forbidden = {"is_fraud", "transaction_id", "user_id", "merchant_id", "device_id", "split"}
+    if forbidden.intersection(FEATURES):
+        raise ValueError("Target or identifier leaked into model features")
+    if set(FEATURES) - set(df.columns):
+        raise ValueError("Missing model features")
     x = df[FEATURES].copy()
     x[CATS] = x[CATS].astype(str)
     encoded = pd.get_dummies(x, columns=CATS, dtype=int)
@@ -84,7 +100,7 @@ def main():
         }
     report = {
         "dataset_sha256": hashlib.sha256(raw).hexdigest(),
-        "split": "chronological 60/20/20",
+        "split": split_description,
         "rows": {"train": len(train), "validation": len(val), "test": len(test)},
         "fraud_counts": {"train": int(y[train].sum()), "validation": int(y[val].sum()), "test": int(y[test].sum())},
         "max_validation_false_positive_rate": .10,
@@ -100,7 +116,7 @@ def main():
         mlflow.set_experiment("antifraud-four-model-benchmark")
         for model_name, result in results.items():
             with mlflow.start_run(run_name=model_name):
-                mlflow.log_params({"model": model_name, "split": "chronological_60_20_20",
+                mlflow.log_params({"model": model_name, "split": split_description,
                                    "seed": 42, "max_validation_fpr": 0.10})
                 mlflow.log_metrics({"test_" + k: v for k, v in result["test"].items()
                                     if isinstance(v, (int, float))})
