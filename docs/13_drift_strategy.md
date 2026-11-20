@@ -1,20 +1,40 @@
-# Вебинар 13 — проверяемая стратегия дрейфа
+# Вебинар 13 — дрейф данных и стратегия переобучения антифрода
 
-## Реализовано
-`src/antifraud/drift.py` computes KS statistic, p-value and PSI on numerical features.
-`experiments/validate_and_drift.py` compares chronological first 80% (reference) and last 20% (current) of a local CSV.
+**Основание:** лекция «В13_Дрейф_данных_и_концепта_стратегии_переобучения.pdf», страницы 7–42. Домашнее задание — описание на 1–2 страницы: признаки, метод, порог, стратегия переобучения. Практика: две выборки «до/после», KS, визуализация, Evidently и стратегия. При недоступности Evidently лекция разрешает scipy KS как fallback.
 
-```bash
-PYTHONPATH=src python experiments/validate_and_drift.py --data /path/to/antifraud_transactions_dataset.csv
-```
+## 1. Что отслеживаем
+- **Data drift:** меняется распределение признаков `amount`, `tx_count_24h`, `device_age_days`, `avg_amount_30d`; связь с меткой может сохраниться.
+- **Concept drift:** меняется зависимость мошенничества от признаков. PSI и KS **не обнаруживают концепт-дрейф непосредственно**; нужны запаздывающие подтверждённые метки и контроль recall, FPR, PR-AUC.
+- **Референс:** train v3, 5 000 размеченных строк; **текущий контрольный период:** validation v3, 1 000 строк. Test v3 **не используется** для настройки порогов мониторинга. Оба периода синтетические.
 
-Default features: `amount`, `tx_count_24h`, `device_age_days`, `avg_amount_30d`. PSI > 0.2 is a **review signal**, not automatic evidence of model degradation. KS p-values depend on sample size; multiple comparisons should be considered.
+## 2. Воспроизводимый эксперимент на v3 (20.11.2026)
+Метод: `scipy.stats.ks_2samp`, PSI по 10 квантильным корзинам reference (с объединением совпадающих границ, сглаживание 1e-6). Рассчитано локально на файлах `train.csv` и `validation.csv` из v3, **без изменения CSV**.
 
-## Strategy
-1. Track feature distributions, missing values, schema and traffic in a fixed reference window.
-2. Investigate shift and provenance; separate genuine population shift from ETL defects.
-3. Measure delayed-label recall, precision and false-positive rate once verified labels arrive.
-4. Retrain only after approved data/label audit, experiment tracking and validation on future holdout.
-5. Compare challenger vs champion in shadow mode, require human approval before rollout.
+| Признак | KS statistic | p-value | PSI | Сигнал PSI >0.2 |
+|---|---:|---:|---:|---|
+| amount | 0.0400 | 0.136467 | 0.0115 | нет |
+| tx_count_24h | 0.0090 | ~1.000000 | 0.0012 | нет |
+| device_age_days | 0.8648 | <1e-6 | 5.3217 | **да** |
+| avg_amount_30d | 0.0398 | 0.140156 | 0.0326 | нет |
 
-**Concept drift cannot be proven by feature-only PSI or KS.** This implementation is a reproducible drift diagnostic, not a continuous monitoring service or Evidently report. Evidently can be added once version compatibility and monitoring requirements are agreed.
+**Интерпретация:** исключительно сильный сдвиг `device_age_days` требует исследования генератора/временных границ/распределения устройств и повторной проверки на независимом периоде. PSI 5.32 — статистический сигнал, не доказательство concept drift или дефекта модели. `is_new_device` связан с возрастом устройства, поэтому важно проверить оба признака и subgroup FPR. Малые p-values при множественных тестах требуют осторожности. Результат не подтверждён Evidently; fallback scipy разрешён лекцией.
+
+## 3. Мониторинг, пороги и реакция
+| Контроль | Периодичность | Порог учебной стратегии | Действие |
+|---|---|---|---|
+| PSI числовых признаков | ежедневно, окно 7 дней при достаточном объёме | >0.20 — расследование; >0.25 — высокий приоритет | проверить ETL, состав трафика и свежесть данных |
+| KS | ежедневно при достаточном объёме | p<0.01 с учётом множественных сравнений | подтвердить PSI и визуально изучить распределение |
+| Missingness / schema | каждый batch | нарушения обязательных полей | блокировать плохой batch, не модель |
+| Recall, FPR, PR-AUC | еженедельно на зрелых подтверждённых метках | существенное ухудшение vs baseline с доверительным интервалом | оценка кандидата на переобучение |
+
+Пороги — **проектные**, не статистически откалиброванные на реальном банковском потоке. При отсутствии подтверждённых меток нельзя утверждать, что качество модели ухудшилось.
+
+## 4. Стратегия переобучения
+**Выбор:** по событию, с еженедельным плановым пересмотром сигналов. При PSI >0.25 или устойчивом ухудшении recall/FPR — сначала аудит данных и причин. Переобучение разрешено только после получения независимых подтверждённых меток службы безопасности, исключения leakage, сравнения challenger/champion на последующем временном holdout и человеческого одобрения. Нельзя обучаться на собственных предсказаниях модели как на ground truth. После принятия — shadow/canary и контролируемый откат по [В10](10_deploy_strategy.md). Непрерывное автоматическое обучение **не выбрано** из-за риска обратной связи и незрелости учебной инфраструктуры.
+
+## 5. Что подтверждено, а что нет
+- [x] Стратегия, признаки, методы, пороги, источники меток и триггеры реакции.
+- [x] Численный KS/PSI на train vs validation v3, воспроизводимый скрипт `experiments/webinar13_drift_v3.py`.
+- [ ] Отчёт Evidently: библиотека не запускалась; лекция допускает scipy fallback.
+- [ ] Реальный мониторинг по расписанию, реальные банковские метки и переобучение — не реализованы.
+- [ ] Факт сдачи преподавателю — не подтверждён.
