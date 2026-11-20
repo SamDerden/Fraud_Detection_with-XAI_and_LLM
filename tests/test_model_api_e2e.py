@@ -53,4 +53,7 @@ def test_persisted_model_served_via_api(tmp_path, monkeypatch):
         assert body["model_version"] == "smoke-v1"
         assert body["decision"] in ("approve", "review")
         assert body["demo_only"] is False
+        assert body["explanation_method"] == "shap_template"
+        assert len(body["top_factors"]) == 5
+        assert "SHAP" in body["explanation"]
         assert 0 <= body["risk_score"] <= 1
