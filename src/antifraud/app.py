@@ -44,9 +44,9 @@ class ScoreRequest(BaseModel):
     day_of_week: int | None = Field(default=None, ge=0, le=6)
     tx_count_24h: int = Field(default=0, ge=0)
     tx_count_7d: int = Field(default=0, ge=0)
-    distinct_merchants_7d: int = Field(default=1, ge=1)
-    distinct_countries_30d: int = Field(default=1, ge=1)
-    device_age_days: int = Field(default=100, ge=0)
+    distinct_merchants_7d: int = Field(default=0, ge=0)
+    distinct_countries_30d: int = Field(default=0, ge=0)
+    device_age_days: float = Field(default=100, ge=0, allow_inf_nan=False)
     avg_amount_ratio: float = Field(default=1.0, gt=0, allow_inf_nan=False)
     channel: Literal["mobile", "web", "pos", "api"] = "mobile"
 
@@ -167,7 +167,7 @@ def score_transaction(req: ScoreRequest) -> ScoreResponse:
                 or req.is_night_tx != int(hour <= 5)):
             from fastapi import HTTPException
             raise HTTPException(status_code=422, detail="Inconsistent derived features")
-        values = {
+        if req.tx_count_7d < req.tx_count_24h or req.distinct_merchants_7d > req.tx_count_7d:\n            from fastapi import HTTPException\n            raise HTTPException(status_code=422, detail="Inconsistent transaction history counts")\n        values = {
             "amount": req.amount, "hour": hour, "day_of_week": weekday,
             "avg_amount_30d": req.avg_amount_30d, "tx_count_24h": req.tx_count_24h,
             "tx_count_7d": req.tx_count_7d,
@@ -197,3 +197,19 @@ def score_transaction(req: ScoreRequest) -> ScoreResponse:
         explanation="Synthetic model demonstration; not SHAP or a real fraud assessment",
         model_version=MODEL_VERSION, transaction_id=req.transaction_id,
     )
+
+
+# Educational webinar 9 endpoint aliases; canonical routes remain /v1/*.
+@app.get("/healthcheck")
+def webinar_healthcheck() -> dict:
+    return health()
+
+
+@app.get("/model-info")
+def webinar_model_info() -> dict:
+    return model_info()
+
+
+@app.post("/predict", response_model=ScoreResponse)
+def webinar_predict(req: ScoreRequest) -> ScoreResponse:
+    return score_transaction(req)
