@@ -57,6 +57,8 @@ def test_v4_api_end_to_end(model_dir, monkeypatch):
     info = client.get("/v1/model-info")
     assert info.status_code == 200
     assert info.json()["model_version"] == "extratrees-engineered-v4"
+    assert info.json()["shap_api_contract"] == "tree_shap_v2"
+    assert info.json()["llm_provider"] == "groq"
     assert info.json()["n_engineered_features"] == 7
     req = {
         "transaction_id": "test-v4", "user_id": "demo",
