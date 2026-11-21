@@ -42,17 +42,20 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
     payload = {
         "model": model,
         "temperature": 0,
-        "max_tokens": 150,
+        "max_tokens": 300,
         "messages": [
             {"role": "system", "content": (
-                'Select existing feature names for an antifraud operator explanation. '
-                'Reply ONLY JSON: {"factor_names":["name"]}. '
-                "Use only supplied names, at most five, no extra fields. "
-                "Do not infer fraud, invent reasons, or include personal data."
+                'Составь короткое содержательное объяснение на русском языке для аналитика. '
+                'Верни только JSON {"factor_names":["name"],"explanation":"text"}. '
+                'Используй только переданные SHAP-факторы и направления их влияния; '
+                'названия факторов сохраняй точно, не добавляй чисел, других признаков, '
+                'сведений об операции, причинных утверждений или вердикта о мошенничестве. '
+                'Укажи, что вклады SHAP не доказывают мошенничество.'
             )},
             {"role": "user", "content": json.dumps([
                 {"feature": f["feature"], "direction": f["direction"],
-                 "contribution": f.get("shap_value", f.get("shap_log_odds", f.get("score_delta")))} for f in factors
+                 "contribution": f.get("shap_value", f.get("shap_log_odds"))}
+                for f in factors
             ], ensure_ascii=False)},
         ],
     }
@@ -65,14 +68,24 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
             response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]
         selection = json.loads(content)
-        if not isinstance(selection, dict) or set(selection) != {"factor_names"}:
+        if not isinstance(selection, dict) or set(selection) != {"factor_names", "explanation"}:
             raise ValueError("Invalid LLM response schema")
         names = selection["factor_names"]
         if (not isinstance(names, list) or not 1 <= len(names) <= min(len(factors), 5)
                 or any(not isinstance(n, str) or n not in allowed for n in names)
                 or len(names) != len(set(names))):
             raise ValueError("LLM selected unapproved or repeated factors")
-        return deterministic_explanation([allowed[n] for n in names]), provider + "_grounded_selection"
+        explanation = selection["explanation"]
+        if not isinstance(explanation, str) or not 30 <= len(explanation) <= 900:
+            raise ValueError("Invalid explanation text")
+        import re
+        if re.search(r"\d", explanation):
+            raise ValueError("Unverified numeric claims")
+        if not all(name.lower() in explanation.lower() for name in names):
+            raise ValueError("Selected factors not grounded in text")
+        if any(name.lower() in explanation.lower() for name in allowed if name not in names):
+            raise ValueError("Unselected factor in explanation")
+        return explanation.strip(), provider + "_grounded_generation"
     except (httpx.HTTPError, KeyError, ValueError, TypeError, IndexError) as exc:
         log.warning("LLM explanation unavailable: %s (%s)", type(exc).__name__, str(exc)[:180])
         return fallback, "shap_template_fallback"
