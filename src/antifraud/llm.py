@@ -27,7 +27,7 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
     """Backward-compatible public function; supports grok, groq, openrouter."""
     fallback = deterministic_explanation(factors)
     if os.getenv("ANTIFRAUD_LLM_ENABLED", "").lower() not in {"1", "true", "yes"}:
-        return fallback, "shap_template"
+        return fallback, "shap_template_disabled"
     provider = os.getenv("ANTIFRAUD_LLM_PROVIDER", "groq").lower()
     if provider not in PROVIDERS:
         return fallback, "shap_template_unsupported_provider"
@@ -88,6 +88,16 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
         if any(name.lower() in explanation.lower() for name in allowed if name not in names):
             raise ValueError("Unselected factor in explanation")
         return explanation.strip(), provider + "_grounded_generation"
-    except (httpx.HTTPError, KeyError, ValueError, TypeError, IndexError) as exc:
-        log.warning("LLM explanation unavailable: %s (%s)", type(exc).__name__, str(exc)[:180])
-        return fallback, "shap_template_fallback"
+    except httpx.TimeoutException:
+        log.warning("GroqCloud timed out")
+        return fallback, "shap_template_timeout"
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        log.warning("GroqCloud HTTP %s", status)
+        return fallback, f"shap_template_http_{status}"
+    except httpx.HTTPError as exc:
+        log.warning("GroqCloud transport error: %s", type(exc).__name__)
+        return fallback, "shap_template_network_error"
+    except (KeyError, ValueError, TypeError, IndexError, AttributeError) as exc:
+        log.warning("GroqCloud response rejected: %s", type(exc).__name__)
+        return fallback, "shap_template_invalid_response"
