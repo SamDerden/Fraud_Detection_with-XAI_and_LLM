@@ -1,4 +1,4 @@
-"""ExtraTrees v4: exact training-time preprocessing and local perturbation explanation.
+"""ExtraTrees v4: exact training-time preprocessing and TreeSHAP explanations.
 
 Trusted local joblib archive only. Explanations are one-feature-at-a-time score
 deltas against training means, NOT SHAP and NOT causal attributions.
@@ -12,6 +12,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
+import shap
 
 BASE = ("amount", "hour", "day_of_week", "avg_amount_30d", "tx_count_24h",
         "tx_count_7d", "distinct_merchants_7d", "distinct_countries_30d",
@@ -56,28 +57,72 @@ def transform(features: dict, columns: list[str]):
     return x.reindex(columns=columns, fill_value=0)
 
 
+# Aggregate mutually related encoded features into readable concepts. Grouping is
+# an exact sum of SHAP contributions, not a causal interpretation.
+def _feature_group(name: str) -> str:
+    if name.startswith("channel_"):
+        return "channel"
+    if name.startswith("country_"):
+        return "country"
+    if name in ("device_age_days", "log_device_age", "is_new_device"):
+        return "device_history"
+    if name in ("amount", "log_amount", "avg_amount_30d", "log_avg_amount", "amount_to_avg"):
+        return "amount_context"
+    if name in ("tx_count_24h", "tx_count_7d", "tx24_share", "tx_per_day"):
+        return "transaction_frequency"
+    if name in ("distinct_merchants_7d", "merchants_per_tx"):
+        return "merchant_diversity"
+    return name
+
+
+@lru_cache(maxsize=4)
+def _tree_explainer(directory: str):
+    bundle, _ = load_extratrees(directory)
+    return shap.TreeExplainer(bundle["model"])
+
+
+def _positive_class_shap(explainer, scaled):
+    result = explainer.shap_values(scaled, check_additivity=False)
+    if isinstance(result, list):
+        values = np.asarray(result[1], dtype=float)[0]
+    else:
+        values = np.asarray(result, dtype=float)
+        if values.ndim == 3:
+            values = values[0, :, 1]
+        elif values.ndim == 2:
+            values = values[0]
+        else:
+            raise RuntimeError("Unexpected SHAP value dimensions")
+    expected = np.asarray(explainer.expected_value, dtype=float).reshape(-1)
+    base = float(expected[1] if len(expected) == 2 else expected[0])
+    return np.asarray(values, dtype=float).reshape(-1), base
+
+
 def score_and_explain_extratrees(directory: str, features: dict, top_k: int = 5):
     bundle, meta = load_extratrees(directory)
     row = transform(features, meta["encoded_columns"])
     scaled = bundle["scaler"].transform(row)
-    model = bundle["model"]
-    score = float(model.predict_proba(scaled)[0, 1])
+    score = float(bundle["model"].predict_proba(scaled)[0, 1])
     if not np.isfinite(score):
         raise RuntimeError("ExtraTrees returned nonfinite score")
-    # Replace a single encoded column with its train mean (scaled zero).
-    # Correlated columns and one-hot dummies make this a diagnostic, not SHAP.
-    deltas = []
-    for j, col in enumerate(meta["encoded_columns"]):
-        modified = scaled.copy()
-        modified[0, j] = 0.0
-        baseline = float(model.predict_proba(modified)[0, 1])
-        delta = score - baseline
-        deltas.append((col, delta))
-    ranked = sorted(deltas, key=lambda t: abs(t[1]), reverse=True)[:top_k]
+    shap_values, base = _positive_class_shap(_tree_explainer(directory), scaled)
+    if len(shap_values) != len(meta["encoded_columns"]) or not np.isfinite(shap_values).all():
+        raise RuntimeError("SHAP dimensions or values invalid")
+    # TreeSHAP for sklearn ExtraTreesClassifier is in class probability units.
+    if not np.isclose(base + float(shap_values.sum()), score, atol=1e-5, rtol=1e-5):
+        raise RuntimeError("SHAP contributions do not reconcile with model prediction")
+    grouped = {}
+    for col, contribution in zip(meta["encoded_columns"], shap_values):
+        name = _feature_group(col)
+        grouped[name] = grouped.get(name, 0.0) + float(contribution)
+    if not np.isclose(base + sum(grouped.values()), score, atol=1e-5):
+        raise RuntimeError("Grouped SHAP contributions do not reconcile")
+    ranked = sorted(grouped.items(), key=lambda item: abs(item[1]), reverse=True)[:top_k]
     factors = [
-        {"feature": col, "value": float(row.iloc[0][col]),
-         "score_delta": round(float(delta), 6),
-         "direction": "increases_risk" if delta > 0 else "decreases_risk"}
-        for col, delta in ranked
+        {"feature": name, "shap_value": round(value, 8),
+         "direction": "increases_risk" if value > 0 else "decreases_risk"}
+        for name, value in ranked
     ]
-    return score, {**meta, "review_threshold": REVIEW_THRESHOLD}, factors
+    return score, {**meta, "review_threshold": REVIEW_THRESHOLD,
+                   "shap_base_value": base, "shap_reconstruction": base + float(shap_values.sum()),
+                   "explanation_type": "tree_shap_probability"}, factors

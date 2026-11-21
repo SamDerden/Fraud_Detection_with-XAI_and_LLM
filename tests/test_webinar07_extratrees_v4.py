@@ -53,8 +53,8 @@ def test_03_repeatability_v4(final_model, operation):
     for a, b in zip(first[2], second[2]):
         assert a["feature"] == b["feature"]
         assert a["direction"] == b["direction"]
-        assert a["value"] == pytest.approx(b["value"], abs=1e-12)
-        assert a["score_delta"] == pytest.approx(b["score_delta"], abs=1e-6)
+        assert a["shap_value"] == pytest.approx(b["shap_value"], abs=1e-8)
+        assert a["shap_value"] == pytest.approx(b["shap_value"], abs=1e-6)
 
 def test_04_engineered_features_finite(final_model, operation):
     _, bundle, meta = final_model
@@ -97,4 +97,4 @@ def test_06_api_v4_response_and_metrics(final_model, monkeypatch):
     assert body["decision"] in ("approve","review")
     assert 0 <= body["risk_score"] <= 1
     assert len(body["top_factors"]) == 5
-    assert all(np.isfinite(f["score_delta"]) for f in body["top_factors"])
+    assert all(np.isfinite(f["shap_value"]) for f in body["top_factors"])

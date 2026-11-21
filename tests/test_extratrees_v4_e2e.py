@@ -43,7 +43,7 @@ def test_v4_scoring_is_repeatable(model_dir):
     assert 0 <= score <= 1
     assert meta["review_threshold"] > 0
     assert len(factors) == 5
-    assert all("score_delta" in f for f in factors)
+    assert all("shap_value" in f for f in factors)
 
 
 def test_v4_api_end_to_end(model_dir, monkeypatch):
@@ -72,5 +72,5 @@ def test_v4_api_end_to_end(model_dir, monkeypatch):
     assert data["model_version"] == "extratrees-engineered-v4"
     assert data["decision"] in ("approve", "review")
     assert len(data["top_factors"]) == 5
-    assert "score_delta" in data["top_factors"][0]
+    assert "shap_value" in data["top_factors"][0]
     assert client.get("/health").json()["model_version"] == "extratrees-engineered-v4"

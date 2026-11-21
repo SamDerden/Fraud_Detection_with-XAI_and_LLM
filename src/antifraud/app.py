@@ -162,7 +162,7 @@ def model_info() -> dict:
                 "n_features": len(meta.get("base_features", meta.get("features", []))),
                 "feature_names": meta.get("base_features", meta.get("features", [])),
                 "n_engineered_features": len(meta.get("engineered_features", [])),
-                "explanation_type": "score_delta" if kind == "extratrees_v4" else "shap",
+                "explanation_type": "tree_shap_probability" if kind == "extratrees_v4" else "shap",
                 "training_data": "local_csv", "demo_only": False,
                 "review_threshold": meta["review_threshold"], "block_threshold": None}
     if os.getenv("ANTIFRAUD_REQUIRE_ARTIFACT") == "1":

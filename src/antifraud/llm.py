@@ -1,6 +1,6 @@
 """Optional provider-neutral, grounded explanation layer.
 
-LLM selects existing diagnostic factor names (score-delta for v4); no personal data is sent.
+LLM selects verified SHAP factor names; no personal data is sent.
 If provider is unavailable, deterministic explanation is always returned.
 """
 from __future__ import annotations
@@ -52,7 +52,7 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
             )},
             {"role": "user", "content": json.dumps([
                 {"feature": f["feature"], "direction": f["direction"],
-                 "contribution": f.get("score_delta", f.get("shap_log_odds"))} for f in factors
+                 "contribution": f.get("shap_value", f.get("shap_log_odds", f.get("score_delta")))} for f in factors
             ], ensure_ascii=False)},
         ],
     }
