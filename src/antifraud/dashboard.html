@@ -138,7 +138,7 @@ function render(r){
  $('decision').textContent=high?'На ручную проверку':'Одобрить';
  $('version').textContent=r.model_version;
  $('explanation').textContent=String(r.explanation||'Объяснение недоступно');
- $('method').textContent=r.explanation_method==='groq_grounded_generation'?'GroqCloud: проверенное текстовое объяснение':r.explanation_method?.startsWith('shap_template')?'Локальное объяснение по SHAP (GroqCloud не использован)':'Метод: '+(r.explanation_method||'неизвестен');
+ $('method').textContent=r.explanation_method==='groq_grounded_generation'?'GroqCloud: проверенное текстовое объяснение':r.explanation_method?.startsWith('shap_template')?'Локальное объяснение SHAP — GroqCloud не использован ('+(r.explanation_method||'причина неизвестна')+')':'Метод: '+(r.explanation_method||'неизвестен');
  $('factors').replaceChildren();
  const top=all.slice().sort((x,y)=>Math.abs(y.value)-Math.abs(x.value)).slice(0,5);
  const other=all.slice().sort((x,y)=>Math.abs(y.value)-Math.abs(x.value)).slice(5).reduce((sum,f)=>sum+f.value,0);
@@ -154,9 +154,6 @@ function render(r){
   val.textContent=(f.value>0?'+':'')+f.value.toFixed(4);
   row.append(name,track,val);$('factors').append(row);
  }
- const summary=document.createElement('p');summary.className='viz-note';
- summary.textContent='Проверка TreeSHAP: базовое значение '+base.toFixed(4)+' + сумма всех вкладов '+(reconstructed-base).toFixed(4)+' = '+reconstructed.toFixed(4)+'. Вклады измеряются в единицах оценки модели, не являются причинным доказательством.';
- $('factors').append(summary);
  $('placeholder').classList.add('hidden');$('result').classList.remove('hidden');
 }
 form.addEventListener('submit',async e=>{e.preventDefault();$('error').classList.add('hidden');$('submit').disabled=true;$('submit').textContent='Проверяем…';try{const n=k=>Number(inputs[k].value);const d=new Date(inputs.timestamp.value+'Z');if(!Number.isFinite(d.getTime()))throw Error('Некорректное время');if(inputs.is_new_device.checked!==(n('device_age_days')<7))throw Error('Флаг «Новое устройство» должен соответствовать возрасту устройства (менее 7 дней)');if(inputs.is_night_tx.checked!==(d.getUTCHours()<=5))throw Error('Флаг «Ночная операция» должен соответствовать выбранному времени UTC (00:00–05:59)');if(n('tx_count_7d')<n('tx_count_24h'))throw Error('Операций за неделю не может быть меньше, чем за сутки');if(n('distinct_merchants_7d')>n('tx_count_7d'))throw Error('Мерчантов не может быть больше, чем операций за неделю');const body={transaction_id:'demo-'+Date.now(),user_id:'demo-user',amount:n('amount'),timestamp:d.toISOString(),currency:'RUB',country:inputs.country.value,channel:inputs.channel.value,avg_amount_30d:n('avg_amount_30d'),device_age_days:n('device_age_days'),tx_count_24h:n('tx_count_24h'),tx_count_7d:n('tx_count_7d'),distinct_merchants_7d:n('distinct_merchants_7d'),distinct_countries_30d:n('distinct_countries_30d'),is_new_device:inputs.is_new_device.checked?1:0,is_night_tx:inputs.is_night_tx.checked?1:0};const response=await fetch('/v1/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data));render(data)}catch(err){$('result').classList.add('hidden');$('placeholder').classList.remove('hidden');$('error').textContent='Не удалось проверить операцию: '+err.message;$('error').classList.remove('hidden')}finally{$('submit').disabled=false;$('submit').textContent='▷ Проверить транзакцию'}});
