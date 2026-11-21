@@ -44,7 +44,8 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
     payload = {
         "model": model,
         "temperature": 0,
-        "max_tokens": 300,
+        "max_tokens": 700,
+        "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": (
                 'Составь короткое содержательное объяснение на русском языке для аналитика. '
@@ -69,7 +70,12 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
             )
             response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]
-        selection = json.loads(content)
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("Empty LLM response")
+        clean = content.strip()
+        if clean.startswith("```"):
+            clean = clean.split(chr(10), 1)[-1].rsplit("```", 1)[0].strip()
+        selection = json.loads(clean)
         if not isinstance(selection, dict) or set(selection) != {"factor_names", "explanation"}:
             raise ValueError("Invalid LLM response schema")
         names = selection["factor_names"]
