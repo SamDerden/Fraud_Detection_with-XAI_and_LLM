@@ -167,7 +167,12 @@ def model_info() -> dict:
                 "n_engineered_features": len(meta.get("engineered_features", [])),
                 "explanation_type": "tree_shap_probability" if kind == "extratrees_v4" else "shap",
                 "training_data": "local_csv", "demo_only": False,
-                "review_threshold": meta["review_threshold"], "block_threshold": None}
+                "review_threshold": meta["review_threshold"], "block_threshold": None,
+                "shap_api_contract": "tree_shap_v2" if kind == "extratrees_v4" else "legacy",
+                "llm_enabled": os.getenv("ANTIFRAUD_LLM_ENABLED", "").lower() in {"1", "true", "yes"},
+                "llm_provider": os.getenv("ANTIFRAUD_LLM_PROVIDER", "groq").lower(),
+                "llm_credentials_configured": bool(os.getenv("GROQ_API_KEY")),
+                "llm_model_configured": bool(os.getenv("GROQ_MODEL"))}
     if os.getenv("ANTIFRAUD_REQUIRE_ARTIFACT") == "1":
         from fastapi import HTTPException
         raise HTTPException(status_code=503, detail="CatBoost v3 artifact not loaded; synthetic fallback forbidden")
