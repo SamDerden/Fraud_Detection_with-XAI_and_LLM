@@ -21,4 +21,4 @@ jobs:
         env:
           PYTHONPATH: src
           ANTIFRAUD_LLM_ENABLED: 'false'
-        run: python -m pytest -v -s tests/test_webinar07_extratrees_v4.py tests/test_demo_scenarios_v4.py tests/test_extratrees_v4_e2e.py
+        run: python -m pytest -v -s tests/test_webinar07_extratrees_v4.py tests/test_demo_scenarios_v4.py tests/test_extratrees_v4_e2e.py tests/test_tree_shap_v4.py

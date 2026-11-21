@@ -54,7 +54,6 @@ def test_03_repeatability_v4(final_model, operation):
         assert a["feature"] == b["feature"]
         assert a["direction"] == b["direction"]
         assert a["shap_value"] == pytest.approx(b["shap_value"], abs=1e-8)
-        assert a["shap_value"] == pytest.approx(b["shap_value"], abs=1e-6)
 
 def test_04_engineered_features_finite(final_model, operation):
     _, bundle, meta = final_model
