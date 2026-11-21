@@ -42,6 +42,7 @@
 
 .quality-overlap{width:100%;max-width:660px;height:auto!important;transform:none!important;margin:18px auto 10px;position:relative}.quality-venn-svg{display:block;width:100%;height:auto;overflow:visible}.quality-venn-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 22px;color:#d4cce5;font-size:12px}.quality-venn-legend span{display:flex;align-items:center;gap:7px}.quality-venn-legend i{display:inline-block;width:11px;height:11px;border-radius:50%}.quality-dot-one{background:#80d6ed}.quality-dot-two{background:#d5a0f0}.quality-dot-both{background:#aa88e7}@media(max-width:600px){.quality-overlap{max-width:100%;transform:none!important}.quality-venn-legend{font-size:11px}}
 .mlops-roadmap{margin:18px 0 22px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}.mlops-roadmap h3{grid-column:1/-1;margin:0 0 5px;font-size:19px}.mlops-roadmap>div{background:#22213a;border:1px solid #5a4b7c;border-radius:11px;padding:14px}.mlops-roadmap b{display:block;font-size:13px;color:#d5bfff;margin-bottom:8px}.mlops-roadmap span{font-size:12px;line-height:1.6;color:#cbc5da}@media(max-width:950px){.mlops-roadmap{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:550px){.mlops-roadmap{grid-template-columns:1fr}}
+.amount-stepper{display:flex;align-items:stretch;gap:5px;width:100%;margin-top:auto}.amount-stepper input{flex:1;min-width:0;width:100%;margin-top:0!important}.amount-step-button{flex:0 0 35px;border:1px solid #665281;background:#302745;color:#f1e9ff;border-radius:8px;font-size:20px;cursor:pointer}.amount-step-button:hover{background:#4a3769}
 </style></head>
 <body><div class="shell"><aside class="sidebar"><div class="brand">⬡ Antifraud <span>AI</span></div><div class="tag">ML + XAI + LLM · учебный прототип</div><div class="nav-wrap"><button class="nav active" data-tab="team">◇ Команда и разработка</button><button class="nav" data-tab="webinars">▦ О проекте</button><button class="nav" data-tab="model">◉ О модели</button><button class="nav" data-tab="metrics">▥ Метрики и результаты</button><button class="nav" data-tab="engineering">▤ Данные и эксплуатация</button><button class="nav" data-tab="intelligence">✧ Интеллект и безопасность</button><button class="nav" data-tab="analyze">◈ Анализ транзакций</button><button class="nav" data-tab="api">⌘ API (Swagger)</button></div></aside>
 <main class="main"><section id="analyze" class="section"><h1>Анализ транзакций на мошенничество</h1><p class="sub">Проверь операцию с помощью ExtraTrees v4, диагностических факторов и опционального LLM.</p><div class="grid"><div class="panel"><h2>◈ Параметры транзакции</h2><form id="form"><div class="fields">
@@ -104,6 +105,17 @@ const $=id=>document.getElementById(id), form=$('form'), inputs=form.elements;
 function utcNow(){return new Date().toISOString().slice(0,16)}
 inputs.timestamp.value=utcNow();
 function sync(){inputs.is_new_device.checked=Number(inputs.device_age_days.value)<7;const d=new Date(inputs.timestamp.value+'Z');inputs.is_night_tx.checked=d.getUTCHours()<=5}
+// Native step=100 rejects values like 850. Custom controls increment by 100 while preserving any entered amount.
+for(const name of ['amount','avg_amount_30d']){
+ const input=inputs[name];const wrapper=document.createElement('div');wrapper.className='amount-stepper';
+ input.parentNode.insertBefore(wrapper,input);wrapper.appendChild(input);
+ for(const [sign,label] of [[-1,'−'],[1,'+']]){
+  const button=document.createElement('button');button.type='button';button.className='amount-step-button';
+  button.textContent=label;button.setAttribute('aria-label',name+': изменить на '+(sign*100)+' рублей');
+  button.addEventListener('click',()=>{const current=Number(input.value)||0;input.value=String(Math.max(0.01,Math.round((current+sign*100)*100)/100));input.dispatchEvent(new Event('input',{bubbles:true}))});
+  if(sign<0)wrapper.insertBefore(button,input);else wrapper.appendChild(button);
+ }
+}
 inputs.device_age_days.addEventListener('input',sync);inputs.timestamp.addEventListener('input',sync);sync();
 const cases={ordinary:{amount:850,tx_count_24h:1,tx_count_7d:5,distinct_merchants_7d:3,distinct_countries_30d:1,avg_amount_30d:1700,device_age_days:220,channel:'mobile',country:'RU',hour:13},suspicious:{amount:45000,tx_count_24h:8,tx_count_7d:15,distinct_merchants_7d:5,distinct_countries_30d:2,avg_amount_30d:5000,device_age_days:2,channel:'mobile',country:'RU',hour:22},night:{amount:68000,tx_count_24h:12,tx_count_7d:22,distinct_merchants_7d:8,distinct_countries_30d:4,avg_amount_30d:2200,device_age_days:0,channel:'web',country:'TR',hour:2}};
 document.querySelectorAll('[data-case]').forEach(b=>b.addEventListener('click',()=>{const c=cases[b.dataset.case];for(const [k,v] of Object.entries(c))if(k!=='hour')inputs[k].value=v;const d=new Date();d.setUTCHours(c.hour,0,0,0);inputs.timestamp.value=d.toISOString().slice(0,16);sync();document.querySelector('[data-tab="analyze"]').click();$('result').classList.add('hidden');$('placeholder').classList.remove('hidden');$('error').classList.add('hidden')}));
