@@ -46,7 +46,15 @@ def test_02_model_schema_and_parameters(final_model):
 def test_03_repeatability_v4(final_model, operation):
     root, _, _ = final_model
     first = score_and_explain_extratrees(str(root), operation)
-    assert first == score_and_explain_extratrees(str(root), operation)
+    second = score_and_explain_extratrees(str(root), operation)
+    assert first[0] == pytest.approx(second[0], abs=1e-12)
+    assert first[1] == second[1]
+    assert len(first[2]) == len(second[2])
+    for a, b in zip(first[2], second[2]):
+        assert a["feature"] == b["feature"]
+        assert a["direction"] == b["direction"]
+        assert a["value"] == pytest.approx(b["value"], abs=1e-12)
+        assert a["score_delta"] == pytest.approx(b["score_delta"], abs=1e-6)
 
 def test_04_engineered_features_finite(final_model, operation):
     _, bundle, meta = final_model

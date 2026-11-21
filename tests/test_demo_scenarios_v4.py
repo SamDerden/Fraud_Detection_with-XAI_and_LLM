@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 from antifraud.app import app
-from test_webinar07_extratrees_v4 import final_model as final_model_fixture
+from test_webinar07_extratrees_v4 import final_model
 
 @pytest.mark.parametrize("name,amount,hour,history,device,channel,country,average",[
     ("ordinary",850,13,(1,5,3,1),220,"mobile","RU",1700),
