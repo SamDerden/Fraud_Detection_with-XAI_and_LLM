@@ -76,6 +76,9 @@ class ScoreResponse(BaseModel):
     demo_only: bool = True
     explanation_method: str | None = None
     top_factors: list[dict] | None = None
+    shap_base_value: float | None = None
+    shap_other_value: float | None = None
+    shap_all_factors: list[dict] | None = None
 
 
 def build_features(req: ScoreRequest) -> np.ndarray:
@@ -219,6 +222,9 @@ def score_transaction(req: ScoreRequest) -> ScoreResponse:
             model_version=meta["model_version"], transaction_id=req.transaction_id,
             demo_only=False, explanation_method=explanation_method,
             top_factors=factors,
+            shap_base_value=meta.get("shap_base_value"),
+            shap_other_value=meta.get("shap_other_value"),
+            shap_all_factors=meta.get("shap_all_factors"),
         )
     if os.getenv("ANTIFRAUD_REQUIRE_ARTIFACT") == "1":
         from fastapi import HTTPException
