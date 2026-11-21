@@ -124,8 +124,8 @@ const labels={device_history:'Устройство и его история',amo
 function render(r){
  if(r.demo_only||r.model_version!=='extratrees-engineered-v4')throw Error('API вернул не ExtraTrees v4 — демонстрация остановлена');
  const score=Number(r.risk_score),base=Number(r.shap_base_value);
- if(!Number.isFinite(score)||!Number.isFinite(base))throw Error('API не вернул корректную оценку или базовое значение TreeSHAP');
- if(!Array.isArray(r.shap_all_factors)||!r.shap_all_factors.length)throw Error('API не вернул полные SHAP-вклады');
+ if(!Number.isFinite(score)||r.shap_base_value==null||!Number.isFinite(base))throw Error('Сервер вернул ответ без базового значения TreeSHAP. Проверьте, что запущенный FastAPI перезапущен после обновления main и использует ExtraTrees v4.');
+ if(!Array.isArray(r.shap_all_factors)||!r.shap_all_factors.length)throw Error('Запущенный API не передал полный набор TreeSHAP-вкладов; требуется обновление процесса FastAPI до версии main.');
  const all=r.shap_all_factors.map(f=>({feature:f.feature,value:Number(f.shap_value)}));
  if(all.some(f=>!Number.isFinite(f.value)))throw Error('API вернул некорректный SHAP-вклад');
  const reconstructed=base+all.reduce((sum,f)=>sum+f.value,0);
