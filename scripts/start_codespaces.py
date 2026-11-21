@@ -84,7 +84,7 @@ def configure_llm():
     if os.getenv("GROQ_API_KEY"):
         os.environ.setdefault("ANTIFRAUD_LLM_ENABLED", "true")
         os.environ.setdefault("ANTIFRAUD_LLM_PROVIDER", "groq")
-        os.environ.setdefault("GROQ_MODEL", "openai/gpt-oss-120b")
+        os.environ.setdefault("GROQ_MODEL", "llama-3.3-70b-versatile")
         print("GroqCloud включён; внешний запрос будет при оценке транзакции", flush=True)
     else:
         print("GroqCloud: ключ не обнаружен; SHAP-объяснение работает локально", flush=True)
