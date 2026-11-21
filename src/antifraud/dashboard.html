@@ -121,7 +121,44 @@ const cases={ordinary:{amount:850,tx_count_24h:1,tx_count_7d:5,distinct_merchant
 document.querySelectorAll('[data-case]').forEach(b=>b.addEventListener('click',()=>{const c=cases[b.dataset.case];for(const [k,v] of Object.entries(c))if(k!=='hour')inputs[k].value=v;const d=new Date();d.setUTCHours(c.hour,0,0,0);inputs.timestamp.value=d.toISOString().slice(0,16);sync();document.querySelector('[data-tab="analyze"]').click();$('result').classList.add('hidden');$('placeholder').classList.remove('hidden');$('error').classList.add('hidden')}));
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===b.dataset.tab))}));
 const labels={device_history:'Устройство и его история',amount_context:'Сумма и привычный чек',transaction_frequency:'Частота операций',merchant_diversity:'Разнообразие мерчантов',amount_to_avg:'Сумма / средний чек',log_amount:'Логарифм суммы',log_avg_amount:'Логарифм среднего чека',tx24_share:'Доля операций за сутки',merchants_per_tx:'Мерчанты / операции',tx_per_day:'Операций в день',log_device_age:'Логарифм возраста устройства',amount:'Сумма',hour:'Час операции',day_of_week:'День недели',avg_amount_30d:'Средний чек (30 дней)',tx_count_24h:'Операций за сутки',tx_count_7d:'Операций за неделю',distinct_merchants_7d:'Мерчанты (7 дней)',distinct_countries_30d:'Страны (30 дней)',device_age_days:'Возраст устройства',is_new_device:'Новое устройство',is_night_tx:'Ночная операция',channel:'Канал',country:'Страна'};
-function render(r){if(r.demo_only||r.model_version!=='extratrees-engineered-v4')throw Error('API вернул не ExtraTrees v4 — демонстрация остановлена');const high=r.decision==='review';document.querySelector('#factors').previousElementSibling.textContent='TreeSHAP · вклад признаков в прогноз';$('risk').classList.toggle('safe',!high);$('risk-title').textContent=high?'Требуется проверка операции':'Операция не направлена на проверку';$('risk-score').textContent='Оценка модели: '+r.risk_score.toFixed(4)+' ('+(r.risk_score*100).toFixed(1)+'%); не калиброванная вероятность';$('decision').textContent=high?'На ручную проверку':'Одобрить';$('version').textContent=r.model_version;$('explanation').textContent=r.explanation;$('method').textContent=r.explanation_method==='groq_grounded_selection'?'GroqCloud: подтверждённый ответ':r.explanation_method?.startsWith('shap_template')?'Локальное объяснение по диагностическим факторам (GroqCloud не использован)':'Метод: '+(r.explanation_method||'неизвестен');$('factors').replaceChildren();const factors=r.top_factors||[];const max=Math.max(...factors.map(f=>Math.abs((f.shap_value ?? f.shap_log_odds))),0.00001);for(const f of factors){const row=document.createElement('div');row.className='factor';const name=document.createElement('span');name.textContent=labels[f.feature]||f.feature;name.title=f.feature;const track=document.createElement('div');track.className='track';const bar=document.createElement('div');bar.className='bar'+((f.shap_value ?? f.shap_log_odds)<0?' negative':'');bar.style.width=(100*Math.abs((f.shap_value ?? f.shap_log_odds))/max)+'%';track.append(bar);const val=document.createElement('span');val.className='value';val.textContent=((f.shap_value ?? f.shap_log_odds)>0?'+':'')+(f.shap_value ?? f.shap_log_odds).toFixed(3);row.append(name,track,val);$('factors').append(row)}$('placeholder').classList.add('hidden');$('result').classList.remove('hidden')}
+function render(r){
+ if(r.demo_only||r.model_version!=='extratrees-engineered-v4')throw Error('API вернул не ExtraTrees v4 — демонстрация остановлена');
+ const score=Number(r.risk_score),base=Number(r.shap_base_value);
+ if(!Number.isFinite(score)||!Number.isFinite(base))throw Error('API не вернул корректную оценку или базовое значение TreeSHAP');
+ if(!Array.isArray(r.shap_all_factors)||!r.shap_all_factors.length)throw Error('API не вернул полные SHAP-вклады');
+ const all=r.shap_all_factors.map(f=>({feature:f.feature,value:Number(f.shap_value)}));
+ if(all.some(f=>!Number.isFinite(f.value)))throw Error('API вернул некорректный SHAP-вклад');
+ const reconstructed=base+all.reduce((sum,f)=>sum+f.value,0);
+ if(Math.abs(reconstructed-score)>0.00015)throw Error('Ошибка проверки аддитивности SHAP');
+ const high=r.decision==='review';
+ document.querySelector('#factors').previousElementSibling.textContent='TreeSHAP · вклад признаков в прогноз';
+ $('risk').classList.toggle('safe',!high);
+ $('risk-title').textContent=high?'Требуется проверка операции':'Операция не направлена на проверку';
+ $('risk-score').textContent='Оценка модели: '+score.toFixed(4)+' ('+(score*100).toFixed(1)+'%); не калиброванная вероятность';
+ $('decision').textContent=high?'На ручную проверку':'Одобрить';
+ $('version').textContent=r.model_version;
+ $('explanation').textContent=String(r.explanation||'Объяснение недоступно');
+ $('method').textContent=r.explanation_method==='groq_grounded_generation'?'GroqCloud: проверенное текстовое объяснение':r.explanation_method?.startsWith('shap_template')?'Локальное объяснение по SHAP (GroqCloud не использован)':'Метод: '+(r.explanation_method||'неизвестен');
+ $('factors').replaceChildren();
+ const top=all.slice().sort((x,y)=>Math.abs(y.value)-Math.abs(x.value)).slice(0,5);
+ const other=all.slice().sort((x,y)=>Math.abs(y.value)-Math.abs(x.value)).slice(5).reduce((sum,f)=>sum+f.value,0);
+ const entries=[...top,{feature:'other_factors',value:other}];
+ const max=Math.max(...entries.map(f=>Math.abs(f.value)),0.00001);
+ for(const f of entries){
+  const row=document.createElement('div');row.className='factor';
+  const name=document.createElement('span');name.textContent=f.feature==='other_factors'?'Остальные SHAP-факторы':(labels[f.feature]||f.feature);name.title=f.feature;
+  const track=document.createElement('div');track.className='track';
+  const bar=document.createElement('div');bar.className='bar'+(f.value<0?' negative':'');
+  bar.style.width=(100*Math.abs(f.value)/max)+'%';track.append(bar);
+  const val=document.createElement('span');val.className='value';
+  val.textContent=(f.value>0?'+':'')+f.value.toFixed(4);
+  row.append(name,track,val);$('factors').append(row);
+ }
+ const summary=document.createElement('p');summary.className='viz-note';
+ summary.textContent='Проверка TreeSHAP: базовое значение '+base.toFixed(4)+' + сумма всех вкладов '+(reconstructed-base).toFixed(4)+' = '+reconstructed.toFixed(4)+'. Вклады измеряются в единицах оценки модели, не являются причинным доказательством.';
+ $('factors').append(summary);
+ $('placeholder').classList.add('hidden');$('result').classList.remove('hidden');
+}
 form.addEventListener('submit',async e=>{e.preventDefault();$('error').classList.add('hidden');$('submit').disabled=true;$('submit').textContent='Проверяем…';try{const n=k=>Number(inputs[k].value);const d=new Date(inputs.timestamp.value+'Z');if(!Number.isFinite(d.getTime()))throw Error('Некорректное время');if(inputs.is_new_device.checked!==(n('device_age_days')<7))throw Error('Флаг «Новое устройство» должен соответствовать возрасту устройства (менее 7 дней)');if(inputs.is_night_tx.checked!==(d.getUTCHours()<=5))throw Error('Флаг «Ночная операция» должен соответствовать выбранному времени UTC (00:00–05:59)');if(n('tx_count_7d')<n('tx_count_24h'))throw Error('Операций за неделю не может быть меньше, чем за сутки');if(n('distinct_merchants_7d')>n('tx_count_7d'))throw Error('Мерчантов не может быть больше, чем операций за неделю');const body={transaction_id:'demo-'+Date.now(),user_id:'demo-user',amount:n('amount'),timestamp:d.toISOString(),currency:'RUB',country:inputs.country.value,channel:inputs.channel.value,avg_amount_30d:n('avg_amount_30d'),device_age_days:n('device_age_days'),tx_count_24h:n('tx_count_24h'),tx_count_7d:n('tx_count_7d'),distinct_merchants_7d:n('distinct_merchants_7d'),distinct_countries_30d:n('distinct_countries_30d'),is_new_device:inputs.is_new_device.checked?1:0,is_night_tx:inputs.is_night_tx.checked?1:0};const response=await fetch('/v1/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data));render(data)}catch(err){$('result').classList.add('hidden');$('placeholder').classList.remove('hidden');$('error').textContent='Не удалось проверить операцию: '+err.message;$('error').classList.remove('hidden')}finally{$('submit').disabled=false;$('submit').textContent='▷ Проверить транзакцию'}});
 fetch('/v1/model-info').then(async r=>{if(!r.ok)throw Error('API недоступен');const m=await r.json();if(m.model_version!=='extratrees-engineered-v4')throw Error('Подключена не ExtraTrees v4');$('live-model').textContent='Подключено: '+m.model_version+' · '+m.n_features+' исходных + '+m.n_engineered_features+' новых признаков · порог проверки: '+m.review_threshold}).catch(e=>{$('live-model').textContent='Модель не готова: '+e.message});
 </script></body></html>
