@@ -1,7 +1,7 @@
 """ExtraTrees v4: exact training-time preprocessing and TreeSHAP explanations.
 
-Trusted local joblib archive only. Explanations are one-feature-at-a-time score
-deltas against training means, NOT SHAP and NOT causal attributions.
+Trusted local joblib archive only. Explanations are additive TreeSHAP
+contributions in probability units, NOT causal attributions.
 """
 from __future__ import annotations
 
@@ -117,12 +117,16 @@ def score_and_explain_extratrees(directory: str, features: dict, top_k: int = 5)
         grouped[name] = grouped.get(name, 0.0) + float(contribution)
     if not np.isclose(base + sum(grouped.values()), score, atol=1e-5):
         raise RuntimeError("Grouped SHAP contributions do not reconcile")
-    ranked = sorted(grouped.items(), key=lambda item: abs(item[1]), reverse=True)[:top_k]
+    ranked_all = sorted(grouped.items(), key=lambda item: abs(item[1]), reverse=True)
+    ranked = ranked_all[:top_k]
+    remaining = float(sum(value for _, value in ranked_all[top_k:]))
     factors = [
         {"feature": name, "shap_value": round(value, 8),
          "direction": "increases_risk" if value > 0 else "decreases_risk"}
         for name, value in ranked
     ]
     return score, {**meta, "review_threshold": REVIEW_THRESHOLD,
+                   "shap_other_value": remaining, "shap_all_factors": [
+                       {"feature": name, "shap_value": float(value)} for name, value in ranked_all],
                    "shap_base_value": base, "shap_reconstruction": base + float(shap_values.sum()),
                    "explanation_type": "tree_shap_probability"}, factors
