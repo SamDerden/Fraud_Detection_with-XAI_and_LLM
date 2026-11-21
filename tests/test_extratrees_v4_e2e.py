@@ -73,4 +73,8 @@ def test_v4_api_end_to_end(model_dir, monkeypatch):
     assert data["decision"] in ("approve", "review")
     assert len(data["top_factors"]) == 5
     assert "shap_value" in data["top_factors"][0]
+    assert data["shap_base_value"] is not None
+    assert data["shap_all_factors"]
+    assert abs(data["shap_base_value"] + sum(f["shap_value"] for f in data["shap_all_factors"]) - data["risk_score"]) < 0.00015
+
     assert client.get("/health").json()["model_version"] == "extratrees-engineered-v4"
