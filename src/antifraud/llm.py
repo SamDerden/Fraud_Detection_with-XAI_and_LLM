@@ -1,6 +1,6 @@
 """Optional provider-neutral, grounded explanation layer.
 
-LLM only selects existing SHAP feature names; no personal data is sent.
+LLM selects existing diagnostic factor names (score-delta for v4); no personal data is sent.
 If provider is unavailable, deterministic explanation is always returned.
 """
 from __future__ import annotations
@@ -57,7 +57,7 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
         ],
     }
     try:
-        with httpx.Client(timeout=3.0, follow_redirects=False) as client:
+        with httpx.Client(timeout=httpx.Timeout(20.0, connect=5.0), follow_redirects=False) as client:
             response = client.post(
                 endpoint, json=payload,
                 headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
@@ -74,5 +74,5 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
             raise ValueError("LLM selected unapproved or repeated factors")
         return deterministic_explanation([allowed[n] for n in names]), provider + "_grounded_selection"
     except (httpx.HTTPError, KeyError, ValueError, TypeError, IndexError) as exc:
-        log.warning("LLM explanation unavailable: %s", type(exc).__name__)
+        log.warning("LLM explanation unavailable: %s (%s)", type(exc).__name__, str(exc)[:180])
         return fallback, "shap_template_fallback"
