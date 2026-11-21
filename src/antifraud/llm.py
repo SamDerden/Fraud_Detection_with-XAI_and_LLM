@@ -1,6 +1,6 @@
 """Optional provider-neutral, grounded explanation layer.
 
-LLM selects verified SHAP factor names; no personal data is sent.
+LLM generates grounded narrative from verified SHAP factors; no personal data is sent.
 If provider is unavailable, deterministic explanation is always returned.
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
     fallback = deterministic_explanation(factors)
     if os.getenv("ANTIFRAUD_LLM_ENABLED", "").lower() not in {"1", "true", "yes"}:
         return fallback, "shap_template"
-    provider = os.getenv("ANTIFRAUD_LLM_PROVIDER", "grok").lower()
+    provider = os.getenv("ANTIFRAUD_LLM_PROVIDER", "groq").lower()
     if provider not in PROVIDERS:
         return fallback, "shap_template_unsupported_provider"
     endpoint, key_name, model_name = PROVIDERS[provider]
@@ -39,6 +39,8 @@ def explain_with_optional_grok(factors: list[dict]) -> tuple[str, str]:
     if not model:
         return fallback, "shap_template_no_model"
     allowed = {f["feature"]: f for f in factors}
+    if not allowed:
+        return fallback, "shap_template_no_factors"
     payload = {
         "model": model,
         "temperature": 0,
