@@ -17,6 +17,10 @@ def test_tree_shap_reconstructs_probability(final_model):
     assert len(factors)==5
     assert all("shap_value" in f and "score_delta" not in f for f in factors)
     assert np.isclose(details["shap_reconstruction"],score,atol=1e-5)
+    all_factors=details["shap_all_factors"]
+    assert len(all_factors)>=len(factors)
+    assert np.isclose(details["shap_base_value"]+sum(f["shap_value"] for f in all_factors),score,atol=1e-5)
+    assert np.isclose(details["shap_other_value"],sum(f["shap_value"] for f in all_factors[5:]),atol=1e-5)
 
 def test_encoded_and_derived_groups():
     assert _feature_group("channel_mobile")=="channel"
